@@ -1,41 +1,106 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { View, ScrollView } from 'react-native';
+import { router } from 'expo-router';
+import { Button, Card, Text } from '@/components/ui';
+import { Colors, Spacing, Typography } from '@/constants/colors';
+import { useAuthStore } from '@/features/auth/store/auth-store';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function FeedScreen() {
+  const { user, logout } = useAuthStore();
 
-export default function HomeScreen() {
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
+    <View style={{ flex: 1, backgroundColor: Colors.paper }}>
+      {/* Header */}
+      <View
+        style={{
+          paddingTop: 48,
+          paddingBottom: 16,
+          paddingHorizontal: Spacing.lg,
+          backgroundColor: `${Colors.paper}95`,
+          borderBottomWidth: 1,
+          borderBottomColor: Colors.border.light,
+        }}
+      >
+        <Text
+          variant="display"
+          style={{
+            fontSize: 36,
+            textAlign: 'center',
+            letterSpacing: 2,
+          }}
+        >
+          ODA
+        </Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{
+          padding: Spacing.lg,
+          gap: Spacing.lg,
+        }}
+      >
+        {/* Welcome Card */}
+        <Card variant="elevated" style={{ padding: Spacing.xl }}>
+          <Text variant="display" style={{ fontSize: Typography.fontSize['2xl'], marginBottom: Spacing.sm }}>
+            Welcome, {user?.name}! ✨
+          </Text>
+          <Text variant="body" color="secondary" style={{ fontSize: Typography.fontSize.base, lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.base }}>
+            The Anthology (Feed) will be implemented in Phase 2. For now, you can test the authentication flow.
+          </Text>
+          <View style={{ marginTop: Spacing.lg }}>
+            <Text variant="ui" color="secondary" style={{ fontSize: Typography.fontSize.xs, marginBottom: Spacing.xs }}>
+              YOUR ACCOUNT
+            </Text>
+            <Text variant="body" style={{ fontSize: Typography.fontSize.base }}>
+              @{user?.username}
+            </Text>
+            <Text variant="body" color="secondary" style={{ fontSize: Typography.fontSize.sm }}>
+              {user?.email}
+            </Text>
+          </View>
+        </Card>
+
+        {/* Coming Soon Card */}
+        <Card variant="elevated" style={{ padding: Spacing.xl }}>
+          <Text
+            variant="display"
+            style={{
+              fontSize: Typography.fontSize.xl,
+              marginBottom: Spacing.md,
+              textAlign: 'center',
+            }}
+          >
+            📖 Coming Soon
+          </Text>
+          <Text
+            variant="body"
+            color="secondary"
+            style={{
+              fontSize: Typography.fontSize.base,
+              lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.base,
+              textAlign: 'center',
+            }}
+          >
+            • Poem feed with infinite scroll{'\n'}
+            • Create and publish poetry{'\n'}
+            • React with emotions{'\n'}
+            • View poet profiles{'\n'}
+            • Analytics dashboard
+          </Text>
+        </Card>
+
+        {/* Logout */}
+        <Button variant="secondary" onPress={handleLogout}>
+          Logout
+        </Button>
+      </ScrollView>
+    </View>
+  );
+}
       <ThemedView style={styles.stepContainer}>
         <Link href="/modal">
           <Link.Trigger>
