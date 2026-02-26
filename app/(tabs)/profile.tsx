@@ -266,9 +266,16 @@ export default function ProfileScreen() {
           </Text>
           <Pressable
             style={styles.emptyBtn}
-            onPress={() => router.replace('/(auth)/login')}>
+            onPress={() => router.push('/login')}>
             <Text variant="ui" style={styles.emptyBtnText}>
               Iniciar sesión
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.emptyBtn, { marginTop: 12, backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.ink }]}
+            onPress={() => router.push('/register')}>
+            <Text variant="ui" style={[styles.emptyBtnText, { color: Colors.ink }]}>
+              Crear cuenta
             </Text>
           </Pressable>
         </View>

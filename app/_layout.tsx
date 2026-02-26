@@ -43,17 +43,16 @@ export default function RootLayout() {
     loadUser();
   }, []);
 
-  // Handle authentication routing
+  // Route guard: only redirect already-authenticated users away from auth screens.
+  // Unauthenticated users may browse the feed freely; individual screens gate
+  // write-actions (like, compose, profile) themselves.
   useEffect(() => {
     if (isLoading || !fontsLoaded) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
+    const onAuthScreen =
+      segments[0] === 'login' || segments[0] === 'register';
 
-    if (!isAuthenticated && inAuthGroup) {
-      // Redirect to login if not authenticated
-      router.replace('/login');
-    } else if (isAuthenticated && !inAuthGroup) {
-      // Redirect to tabs if already authenticated
+    if (isAuthenticated && onAuthScreen) {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, segments, isLoading, fontsLoaded]);

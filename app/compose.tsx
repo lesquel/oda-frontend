@@ -1,14 +1,19 @@
 import { View, ScrollView, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Redirect } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Text } from '@/components/ui/text';
 import { Colors, Spacing, Typography } from '@/constants/colors';
 import { poemsApi } from '@/features/poems/services/poems-api';
 import type { PoemStatus } from '@/features/poems/types/poem';
+import { useAuthStore } from '@/features/auth/store/auth-store';
 
 export default function ComposeScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = Boolean(id);
+
+  const { isAuthenticated } = useAuthStore();
+  // Guard: unauthenticated users are sent to login
+  if (!isAuthenticated) return <Redirect href="/login" />;
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');

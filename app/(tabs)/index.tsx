@@ -12,22 +12,24 @@ import { Text } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/colors';
 import { PoemCard } from '@/features/poems/components/poem-card';
 import { usePoemFeed } from '@/features/poems/hooks/use-poem-feed';
+import { useAuthStore } from '@/features/auth/store/auth-store';
 
 export default function FeedScreen() {
-  const {
-    poems,
-    isLoading,
-    isRefreshing,
-    error,
-    loadFeed,
-    loadMore,
-    refresh,
-    toggleLike,
-  } = usePoemFeed();
+  const { poems, isLoading, isRefreshing, error, loadFeed, loadMore, refresh, toggleLike } =
+    usePoemFeed();
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     loadFeed(true);
   }, []);
+
+  const handleCompose = () => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    router.push('/compose');
+  };
 
   const renderHeader = () => (
     <View className="pt-12 pb-4 px-4 bg-paper/95 border-b border-pencil/10">
@@ -79,9 +81,7 @@ export default function FeedScreen() {
         <Text variant="body" className="text-center text-pencil mb-4">
           Sé el primero en compartir tus palabras
         </Text>
-        <Pressable
-          onPress={() => router.push('/compose')}
-          className="px-6 py-3 bg-ink rounded-lg">
+        <Pressable onPress={handleCompose} className="px-6 py-3 bg-ink rounded-lg">
           <Text variant="uiBold" className="text-sm text-paper uppercase">
             Escribir un poema
           </Text>
@@ -106,19 +106,13 @@ export default function FeedScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={refresh}
-            tintColor={Colors.ink}
-          />
+          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={Colors.ink} />
         }
         contentContainerStyle={{ paddingBottom: Spacing.xl, flexGrow: 1 }}
       />
 
       {/* FAB */}
-      <Pressable
-        onPress={() => router.push('/compose')}
-        style={styles.fab}>
+      <Pressable onPress={handleCompose} style={styles.fab}>
         <Text className="text-3xl">✍️</Text>
       </Pressable>
     </View>

@@ -10,6 +10,7 @@ import type { PoemResponse, EmotionType } from '@/features/poems/types/poem';
 import { EmotionSelector } from '@/features/poems/components/emotion-selector';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuthStore } from '@/features/auth/store/auth-store';
 
 export default function PoemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,6 +18,16 @@ export default function PoemDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const emotionSheetRef = useRef<BottomSheet>(null);
+  const { isAuthenticated } = useAuthStore();
+
+  // Redirect unauthenticated users to login for write actions
+  const requireAuth = (cb: () => void) => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    cb();
+  };
 
   useEffect(() => {
     loadPoem();
@@ -37,7 +48,7 @@ export default function PoemDetailScreen() {
     }
   };
 
-  const handleLike = async () => {
+  const handleLike = () => requireAuth(async () => {
     if (!poem) return;
 
     try {
@@ -52,11 +63,11 @@ export default function PoemDetailScreen() {
     } catch (err) {
       console.error('Failed to toggle like:', err);
     }
-  };
+  });
 
-  const handleOpenEmotionSelector = () => {
+  const handleOpenEmotionSelector = () => requireAuth(() => {
     emotionSheetRef.current?.expand();
-  };
+  });
 
   const handleSelectEmotion = async (emotion: EmotionType) => {
     if (!poem) return;

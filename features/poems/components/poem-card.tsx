@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import type { PoemResponse } from '../types/poem';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuthStore } from '@/features/auth/store/auth-store';
 
 interface PoemCardProps {
   poem: PoemResponse;
@@ -14,17 +15,27 @@ interface PoemCardProps {
 }
 
 export function PoemCard({ poem, onLike, onEmotionTag }: PoemCardProps) {
+  const { isAuthenticated } = useAuthStore();
+
   const navigateToDetail = () => {
     router.push(`/poem/${poem.id}`);
   };
 
   const handleLike = (e: any) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
     onLike?.(poem.id);
   };
 
   const handleEmotion = (e: any) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
     onEmotionTag?.(poem.id);
   };
 
