@@ -1,5 +1,6 @@
-import { View, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, FlatList, RefreshControl, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { useEffect } from 'react';
+import { router } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/colors';
 import { PoemCard } from '@/features/poems/components/poem-card';
@@ -71,11 +72,23 @@ export default function FeedScreen() {
         <Text variant="display" className="text-2xl mb-2 text-ink">
           No poems yet
         </Text>
-        <Text variant="body" className="text-center text-pencil">
+        <Text variant="body" className="text-center text-pencil mb-4">
           Be the first to share your words
         </Text>
+        <Pressable
+          onPress={() => router.push('/compose')}
+          className="px-6 py-3 bg-ink rounded-lg"
+        >
+          <Text variant="uiBold" className="text-sm text-paper uppercase">
+            Write a poem
+          </Text>
+        </Pressable>
       </View>
     );
+  };
+
+  const handleCompose = () => {
+    router.push('/compose');
   };
 
   return (
@@ -94,9 +107,38 @@ export default function FeedScreen() {
         ListFooterComponent={renderFooter}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
+
+      {/* FAB - Floating Action Button */}
+      {poems.length > 0 && (
+        <Pressable
+          onPress={handleCompose}
+          style={styles.fab}
+        >
+          <Text className="text-3xl text-paper">✍️</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.ink,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+});           refreshing={isRefreshing}
             onRefresh={refresh}
             tintColor={Colors.ink}
           />
