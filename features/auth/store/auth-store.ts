@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { User, authApi, RegisterRequest, LoginRequest } from '../services/auth-api';
+import { usersApi, UpdateProfileRequest } from '@/features/users/services/users-api';
 
 interface AuthState {
   user: User | null;
@@ -12,6 +13,7 @@ interface AuthState {
   login: (data: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
+  updateProfile: (data: UpdateProfileRequest) => Promise<void>;
   clearError: () => void;
 }
 
@@ -97,4 +99,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  updateProfile: async (data: UpdateProfileRequest) => {
+    try {
+      set({ isLoading: true, error: null });
+      const updatedUser = await usersApi.updateProfile(data);
+      set((state) => ({
+        user: { ...state.user!, ...updatedUser },
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.error || 'Update failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
 }));
