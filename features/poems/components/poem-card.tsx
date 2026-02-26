@@ -1,141 +1,159 @@
 import React from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Text } from '@/components/ui/text';
-import { Card } from '@/components/ui/card';
 import type { PoemResponse } from '../types/poem';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuthStore } from '@/features/auth/store/auth-store';
+import { Colors, Typography, Shadows, Spacing } from '@/constants/colors';
 
 interface PoemCardProps {
   poem: PoemResponse;
   onLike?: (poemId: string) => void;
-  onEmotionTag?: (poemId: string) => void;
 }
 
-export function PoemCard({ poem, onLike, onEmotionTag }: PoemCardProps) {
+export function PoemCard({ poem, onLike }: PoemCardProps) {
   const { isAuthenticated } = useAuthStore();
 
-  const navigateToDetail = () => {
-    router.push(`/poem/${poem.id}`);
-  };
+  const navigateToDetail = () => router.push(`/poem/${poem.id}`);
 
   const handleLike = (e: any) => {
     e.stopPropagation();
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
+    if (!isAuthenticated) { router.push('/login'); return; }
     onLike?.(poem.id);
   };
 
-  const handleEmotion = (e: any) => {
-    e.stopPropagation();
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
-    onEmotionTag?.(poem.id);
-  };
-
-  // Truncate content for preview (max 3 lines approximation)
-  const previewContent = poem.content.length > 150 
-    ? `${poem.content.substring(0, 150)}...` 
+  // Show up to 4 lines of content (≈ 120 chars)
+  const preview = poem.content.length > 120
+    ? poem.content.substring(0, 120).split('\n').slice(0, 4).join('\n') + '…'
     : poem.content;
 
   const timeAgo = formatDistanceToNow(new Date(poem.created_at), {
     addSuffix: true,
-    locale: es
+    locale: es,
   });
 
   return (
-    <Pressable onPress={navigateToDetail}>
-      <Card className="aspect-[3/4] p-4 flex justify-between">
-        {/* Header */}
-        <View>
-          {/* Title */}
-          <Text variant="display" className="text-2xl mb-3 text-ink">
+    <Pressable onPress={navigateToDetail} style={styles.card}>
+      <View style={styles.inner}>
+        {/* ── Title block ── */}
+        <View style={styles.titleBlock}>
+          <Text style={styles.title} numberOfLines={2}>
             {poem.title}
           </Text>
-
-          {/* Content Preview */}
-          <Text variant="bodyItalic" className="text-base text-ink/80 leading-relaxed">
-            {previewContent}
-          </Text>
+          <View style={styles.divider} />
         </View>
 
-        {/* Footer */}
-        <View className="space-y-3">
-          {/* Author Info */}
-          <View className="flex-row items-center space-x-2">
-            <View className="w-8 h-8 rounded-full bg-pencil/20 items-center justify-center">
-              <Text variant="ui" className="text-xs text-ink">
-                {poem.author?.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <View className="flex-1">
-              <Text variant="uiBold" className="text-xs text-ink">
-                {poem.author?.name}
-              </Text>
-              <Text variant="ui" className="text-xs text-pencil">
-                @{poem.author?.username}
-              </Text>
-            </View>
-          </View>
+        {/* ── Verse preview ── */}
+        <View style={styles.verseBlock}>
+          <Text style={styles.verse}>{preview}</Text>
+        </View>
 
-          {/* Stats Row */}
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center space-x-4">
-              {/* Like */}
-              <Pressable onPress={handleLike} className="flex-row items-center space-x-1">
-                <Text variant="ui" className="text-xs">
-                  {poem.is_liked ? '❤️' : '🤍'}
-                </Text>
-                <Text variant="ui" className="text-xs text-pencil">
-                  {poem.like_count}
-                </Text>
+        {/* ── Footer ── */}
+        <View style={styles.footer}>
+          <Text style={styles.timeLabel}>{timeAgo}</Text>
+          <View style={styles.footerRight}>
+            <Text style={styles.authorName}>{poem.author?.name}</Text>
+            {/* Like – only shown when authenticated */}
+            {isAuthenticated && (
+              <Pressable onPress={handleLike} style={styles.likeBtn} hitSlop={8}>
+                <Text style={styles.likeIcon}>{poem.is_liked ? '❤️' : '🤍'}</Text>
+                <Text style={styles.likeCount}>{poem.like_count}</Text>
               </Pressable>
-
-              {/* Views */}
-              <View className="flex-row items-center space-x-1">
-                <Text variant="ui" className="text-xs">
-                  👁️
-                </Text>
-                <Text variant="ui" className="text-xs text-pencil">
-                  {poem.view_count}
-                </Text>
-              </View>
-
-              {/* Emotion indicator */}
-              {poem.user_emotion && (
-                <Pressable onPress={handleEmotion}>
-                  <Text variant="ui" className="text-xs">
-                    {getEmotionEmoji(poem.user_emotion)}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-
-            {/* Time */}
-            <Text variant="ui" className="text-xs text-pencil">
-              {timeAgo}
-            </Text>
+            )}
           </View>
         </View>
-      </Card>
+      </View>
     </Pressable>
   );
 }
 
-function getEmotionEmoji(emotion: string): string {
-  const emojiMap: Record<string, string> = {
-    melancholic: '😔',
-    hopeful: '🌟',
-    serene: '☮️',
-    passionate: '🔥',
-    nostalgic: '🍂',
-    inspiring: '✨',
-  };
-  return emojiMap[emotion] || '💭';
-}
+const styles = StyleSheet.create({
+  card: {
+    aspectRatio: 3 / 4,
+    backgroundColor: Colors.surface,
+    borderRadius: 4,
+    overflow: 'hidden',
+    ...Shadows.lift,
+  },
+  inner: {
+    flex: 1,
+    padding: Spacing.xl,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  titleBlock: {
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    width: '100%',
+  },
+  title: {
+    fontFamily: Typography.fontFamily.display,
+    fontSize: 28,
+    lineHeight: 34,
+    color: Colors.ink,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
+  divider: {
+    width: 32,
+    height: 1,
+    backgroundColor: Colors.pencil,
+    opacity: 0.3,
+    marginTop: 4,
+  },
+  verseBlock: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  verse: {
+    fontFamily: Typography.fontFamily.bodyItalic,
+    fontSize: 17,
+    lineHeight: 17 * 1.8,
+    color: Colors.ink,
+    textAlign: 'center',
+    opacity: 0.9,
+  },
+  footer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+    paddingTop: Spacing.sm,
+  },
+  timeLabel: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: Colors.pencil,
+  },
+  footerRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  authorName: {
+    fontFamily: Typography.fontFamily.uiBold,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.ink,
+  },
+  likeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  likeIcon: {
+    fontSize: 12,
+  },
+  likeCount: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 10,
+    color: Colors.pencil,
+  },
+});

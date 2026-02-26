@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useEffect } from 'react';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/colors';
 import { PoemCard } from '@/features/poems/components/poem-card';
@@ -32,10 +33,14 @@ export default function FeedScreen() {
   };
 
   const renderHeader = () => (
-    <View className="pt-12 pb-4 px-4 bg-paper/95 border-b border-pencil/10">
-      <Text variant="display" className="text-4xl text-center tracking-widest">
-        ODA
-      </Text>
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>ODA</Text>
+      <Pressable
+        style={styles.profileBtn}
+        onPress={() => router.push('/(tabs)/profile')}
+      >
+        <Ionicons name="person-circle-outline" size={28} color={Colors.ink} />
+      </Pressable>
     </View>
   );
 
@@ -113,26 +118,51 @@ export default function FeedScreen() {
 
       {/* FAB */}
       <Pressable onPress={handleCompose} style={styles.fab}>
-        <Text className="text-3xl">✍️</Text>
+        <Ionicons name="create-outline" size={28} color={Colors.surface} />
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  header: {
+    paddingTop: 52,
+    paddingBottom: 12,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.paper,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(140,134,125,0.12)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'CormorantGaramond_700Bold_Italic',
+    fontSize: 32,
+    letterSpacing: 8,
+    color: Colors.ink,
+    flex: 1,
+    textAlign: 'center',
+  },
+  profileBtn: {
+    position: 'absolute',
+    right: Spacing.md,
+    bottom: 12,
+    padding: 4,
+  },
   fab: {
     position: 'absolute',
     bottom: 24,
     right: 24,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.ink,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.wax,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.ink,
+    shadowColor: Colors.wax,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 8,
   },
