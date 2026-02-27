@@ -14,7 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
 import { useAuthStore } from '@/features/auth/store/auth-store';
 import { usersApi } from '@/features/users/services/users-api';
-import { useThemeStore } from '@/store/theme-store';
+import { useThemeStore, displayFontLabels, fontScaleLabels } from '@/store/theme-store';
+import type { DisplayFont, FontScale } from '@/store/theme-store';
 import { useThemedColors } from '@/hooks/use-themed-colors';
 import { Typography, Spacing } from '@/constants/colors';
 
@@ -24,7 +25,7 @@ const APP_VERSION = '1.0.0';
 
 export default function SettingsScreen() {
   const { user, isAuthenticated, logout } = useAuthStore();
-  const { theme, toggleTheme } = useThemeStore();
+  const { theme, toggleTheme, displayFont, setDisplayFont, fontScale, setFontScale } = useThemeStore();
   const C = useThemedColors();
   const styles = useMemo(() => makeStyles(C), [C]);
 
@@ -129,7 +130,14 @@ export default function SettingsScreen() {
 
           <View style={styles.divider} />
 
-          <View style={styles.row}>
+          <Pressable
+            style={styles.row}
+            onPress={() => {
+              const fonts: DisplayFont[] = ['cormorant', 'ebgaramond', 'montserrat'];
+              const idx = fonts.indexOf(displayFont);
+              setDisplayFont(fonts[(idx + 1) % fonts.length]);
+            }}
+          >
             <View style={styles.rowLeft}>
               <Ionicons name="text" size={20} color={C.wax} />
               <Text variant="ui" style={styles.rowLabel}>
@@ -138,14 +146,22 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.rowRight}>
               <Text variant="ui" style={styles.rowValue}>
-                Cormorant Garamond
+                {displayFontLabels[displayFont]}
               </Text>
+              <Ionicons name="chevron-forward" size={16} color={C.pencil} />
             </View>
-          </View>
+          </Pressable>
 
           <View style={styles.divider} />
 
-          <View style={styles.row}>
+          <Pressable
+            style={styles.row}
+            onPress={() => {
+              const scales: FontScale[] = ['small', 'normal', 'large'];
+              const idx = scales.indexOf(fontScale);
+              setFontScale(scales[(idx + 1) % scales.length]);
+            }}
+          >
             <View style={styles.rowLeft}>
               <Ionicons name="resize" size={20} color={C.wax} />
               <Text variant="ui" style={styles.rowLabel}>
@@ -154,10 +170,11 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.rowRight}>
               <Text variant="ui" style={styles.rowValue}>
-                Normal
+                {fontScaleLabels[fontScale]}
               </Text>
+              <Ionicons name="chevron-forward" size={16} color={C.pencil} />
             </View>
-          </View>
+          </Pressable>
         </View>
 
         {/* ── Account ── */}

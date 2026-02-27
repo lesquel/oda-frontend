@@ -5,8 +5,6 @@ import {
   Pressable,
   StyleSheet,
   SafeAreaView,
-  Share,
-  Platform,
   Linking,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
@@ -18,6 +16,7 @@ import { usersApi, PublicUserProfile } from '@/features/users/services/users-api
 import { poemsApi } from '@/features/poems/services/poems-api';
 import type { PoemResponse } from '@/features/poems/types/poem';
 import { Typography, Spacing } from '@/constants/colors';
+import { shareContent } from '@/utils/share';
 import { useThemedColors } from '@/hooks/use-themed-colors';
 
 type ThemeColors = ReturnType<typeof useThemedColors>;
@@ -65,13 +64,7 @@ export default function PublicProfileScreen() {
     if (!profile) return;
     const url = `https://oda.app/user/${profile.username}`;
     const msg = `${profile.name} (@${profile.username}) en Oda — ${url}`;
-    if (Platform.OS === 'web') {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(url).catch(() => {});
-      }
-      return;
-    }
-    Share.share({ title: profile.name, message: msg }).catch(() => {});
+    shareContent({ title: profile.name, text: msg });
   };
 
   const initials = (name: string) =>

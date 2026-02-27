@@ -4,8 +4,6 @@ import {
   Pressable,
   ActivityIndicator,
   StyleSheet,
-  Share,
-  Platform,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useEffect, useState, useMemo } from 'react';
@@ -17,6 +15,7 @@ import type { PoemResponse, EmotionType } from '@/features/poems/types/poem';
 import { EmotionSelector } from '@/features/poems/components/emotion-selector';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { shareContent } from '@/utils/share';
 import { useAuthStore } from '@/features/auth/store/auth-store';
 import { useThemedColors } from '@/hooks/use-themed-colors';
 
@@ -85,13 +84,7 @@ export default function PoemDetailScreen() {
   const handleShare = async () => {
     if (!poem) return;
     const message = `${poem.title}\n\n${poem.content}\n\n\u2014 ${poem.author?.name ?? ''}`;
-    if (Platform.OS === 'web') {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(message).catch(() => {});
-      }
-      return;
-    }
-    await Share.share({ title: poem.title, message }).catch(() => {});
+    await shareContent({ title: poem.title, text: message });
   };
 
   const handleSelectEmotion = async (emotion: EmotionType) => {

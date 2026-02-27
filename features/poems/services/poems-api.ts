@@ -135,7 +135,7 @@ export const poemsApi = {
    * Search users by query
    */
   searchUsers: async (q: string): Promise<PublicUserProfile[]> => {
-    const response = await apiClient.get<PublicUserProfile[]>(`/auth/users/search?q=${encodeURIComponent(q)}`);
+    const response = await apiClient.get<PublicUserProfile[]>(`/users/search?q=${encodeURIComponent(q)}`);
     return response.data;
   },
 

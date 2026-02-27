@@ -12,7 +12,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
-  Share,
 } from 'react-native';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { router } from 'expo-router';
@@ -24,6 +23,7 @@ import { usersApi, UserStats } from '@/features/users/services/users-api';
 import { poemsApi } from '@/features/poems/services/poems-api';
 import type { PoemResponse } from '@/features/poems/types/poem';
 import { Typography, Spacing } from '@/constants/colors';
+import { shareContent } from '@/utils/share';
 import { useThemeStore } from '@/store/theme-store';
 import { useThemedColors } from '@/hooks/use-themed-colors';
 
@@ -58,13 +58,7 @@ export default function ProfileScreen() {
     if (!user) return;
     const url = `https://oda.app/user/${user.username}`;
     const msg = `${user.name} (@${user.username}) en Oda — ${url}`;
-    if (Platform.OS === 'web') {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(url).catch(() => {});
-      }
-      return;
-    }
-    Share.share({ title: user.name, message: msg }).catch(() => {});
+    shareContent({ title: user.name, text: msg });
   };
 
   const [stats, setStats] = useState<UserStats | null>(null);
