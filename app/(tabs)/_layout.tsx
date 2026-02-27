@@ -41,13 +41,13 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Impact / Stats */}
+      {/* Settings */}
       <Tabs.Screen
-        name="stats"
+        name="settings"
         options={{
-          title: 'Impacto',
+          title: 'Ajustes',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
+            <Ionicons name="settings-outline" size={size} color={color} />
           ),
         }}
       />

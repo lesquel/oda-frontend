@@ -50,6 +50,10 @@ export default function ComposeScreen() {
       setTitle(poem.title);
       setContent(poem.content);
       setStatus(poem.status);
+      // Show "Publicar ahora" button for existing drafts
+      if (poem.status === 'draft') {
+        setSavedAsDraft(true);
+      }
     } catch (err: any) {
       setError(err.message || 'No se pudo cargar el poema');
     } finally {

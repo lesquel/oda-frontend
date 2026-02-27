@@ -35,20 +35,36 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
     onBookmark?.(poem.id);
   };
 
-  const handleShare = (e: any) => {
+  const handleShare = async (e: any) => {
     e.stopPropagation();
     const text = `${poem.title}\n\n${poem.content}\n\n— ${poem.author?.name ?? ''}`;
     if (Platform.OS === 'web') {
-      if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        (navigator as any)
-          .share({ title: poem.title, text })
-          .catch(() => {});
-      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard
-          .writeText(text)
-          .then(() => alert('¡Copiado al portapapeles!'))
-          .catch(() => {});
-      }
+      try {
+        if (typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function') {
+          await (navigator as any).share({ title: poem.title, text });
+          return;
+        }
+      } catch { /* user cancelled or share API failed */ }
+      // Clipboard fallback
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          if (typeof window !== 'undefined') window.alert('¡Copiado al portapapeles!');
+          return;
+        }
+      } catch { /* clipboard failed */ }
+      // Last resort: textarea copy
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (typeof window !== 'undefined') window.alert('¡Copiado al portapapeles!');
+      } catch { /* nothing to do */ }
       return;
     }
     Share.share({ title: poem.title, message: text }).catch(() => {});
@@ -89,12 +105,12 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
               {isAuthenticated ? (
                 <Pressable onPress={handleLike} style={styles.actionBtn} hitSlop={8}>
                   <Text style={styles.likeIcon}>{poem.is_liked ? '❤️' : '🤍'}</Text>
-                  <Text style={styles.likeCount}>{poem.like_count}</Text>
+                  <Text style={styles.likeCount}>{poem.like_count ?? 0}</Text>
                 </Pressable>
               ) : (
                 <View style={styles.actionBtn}>
                   <Text style={styles.likeIcon}>🤍</Text>
-                  <Text style={styles.likeCount}>{poem.like_count}</Text>
+                  <Text style={styles.likeCount}>{poem.like_count ?? 0}</Text>
                 </View>
               )}
               {/* Bookmark */}

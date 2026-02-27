@@ -27,8 +27,21 @@ import { Typography, Spacing } from '@/constants/colors';
 import { useThemeStore } from '@/store/theme-store';
 import { useThemedColors } from '@/hooks/use-themed-colors';
 
-type ActiveTab = 'published' | 'draft' | 'saved';
+type ActiveTab = 'published' | 'draft' | 'saved' | 'stats';
 type ThemeColors = ReturnType<typeof useThemedColors>;
+
+// ─── Emotion label helper ───────────────────────────────────────────────────
+
+const EMOTION_META: Record<string, { emoji: string; label: string }> = {
+  melancholic: { emoji: '🌧️', label: 'Melancolía' },
+  hopeful: { emoji: '🌅', label: 'Esperanza' },
+  serene: { emoji: '🌿', label: 'Serenidad' },
+  passionate: { emoji: '🔥', label: 'Pasión' },
+  nostalgic: { emoji: '📜', label: 'Nostalgia' },
+  inspiring: { emoji: '✨', label: 'Inspiración' },
+};
+
+// ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
   const { user, isLoading: authLoading, updateProfile, logout } = useAuthStore();
@@ -89,6 +102,7 @@ export default function ProfileScreen() {
   const loadPoems = useCallback(
     async (tab: ActiveTab = activeTab) => {
       if (!user) return;
+      if (tab === 'stats') return; // stats tab doesn't load poems
       try {
         setIsLoadingPoems(true);
         if (tab === 'saved') {
@@ -124,6 +138,55 @@ export default function ProfileScreen() {
     setActiveTab(tab);
     loadPoems(tab);
   };
+
+  // --------------- Like / Bookmark / Publish ---------------
+
+  const toggleLike = useCallback(async (poemId: string) => {
+    try {
+      const isLiked = await poemsApi.toggleLike(poemId);
+      setPoems((prev) =>
+        prev.map((poem) =>
+          poem.id === poemId
+            ? {
+                ...poem,
+                is_liked: isLiked,
+                like_count: isLiked
+                  ? poem.like_count + 1
+                  : Math.max(0, poem.like_count - 1),
+              }
+            : poem
+        )
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleBookmark = useCallback(async (poemId: string) => {
+    try {
+      const isBookmarked = await poemsApi.toggleBookmark(poemId);
+      setPoems((prev) =>
+        prev.map((poem) =>
+          poem.id === poemId ? { ...poem, is_bookmarked: isBookmarked } : poem
+        )
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const publishDraft = useCallback(
+    async (poemId: string) => {
+      try {
+        await poemsApi.updatePoem(poemId, { status: 'published' });
+        setPoems((prev) => prev.filter((p) => p.id !== poemId));
+        loadStats();
+      } catch {
+        /* ignore */
+      }
+    },
+    [loadStats]
+  );
 
   // --------------- Edit profile ---------------
 
@@ -169,7 +232,140 @@ export default function ProfileScreen() {
       .map((w) => w[0]?.toUpperCase() ?? '')
       .join('');
 
-  // --------------- Render helpers ---------------
+  // --------------- Render: Stats tab content ---------------
+
+  const renderStatsContent = () => {
+    if (isLoadingStats) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator color={C.ink} />
+        </View>
+      );
+    }
+    if (!stats) {
+      return (
+        <View style={styles.centered}>
+          <Text variant="body" style={styles.emptyText}>
+            No hay estadísticas disponibles
+          </Text>
+        </View>
+      );
+    }
+
+    const emotionEntries = stats.emotion_distribution
+      ? Object.entries(stats.emotion_distribution).sort(([, a], [, b]) => b - a)
+      : [];
+    const maxEmotion = emotionEntries.length > 0 ? emotionEntries[0][1] : 1;
+
+    return (
+      <View style={styles.statsContainer}>
+        {/* KPI Cards */}
+        <View style={styles.kpiGrid}>
+          <KpiCard icon="book" value={stats.published_count} label="Publicados" C={C} />
+          <KpiCard icon="eye" value={stats.total_views} label="Lecturas" C={C} />
+          <KpiCard icon="heart" value={stats.total_likes} label="Me gusta" C={C} />
+          <KpiCard icon="bookmark" value={stats.total_bookmarks} label="Guardados" C={C} />
+        </View>
+
+        {/* Bar chart — simple View-based bars */}
+        <View style={styles.chartCard}>
+          <Text variant="ui" style={styles.chartTitle}>Resumen de actividad</Text>
+          <View style={styles.barChartContainer}>
+            <BarItem
+              label="Publicados"
+              value={stats.published_count}
+              max={Math.max(stats.published_count, stats.draft_count, stats.total_likes, stats.total_views, 1)}
+              color={C.wax}
+              C={C}
+            />
+            <BarItem
+              label="Borradores"
+              value={stats.draft_count}
+              max={Math.max(stats.published_count, stats.draft_count, stats.total_likes, stats.total_views, 1)}
+              color={C.ink}
+              C={C}
+            />
+            <BarItem
+              label="Me gusta"
+              value={stats.total_likes}
+              max={Math.max(stats.published_count, stats.draft_count, stats.total_likes, stats.total_views, 1)}
+              color="#D4A373"
+              C={C}
+            />
+            <BarItem
+              label="Lecturas"
+              value={stats.total_views}
+              max={Math.max(stats.published_count, stats.draft_count, stats.total_likes, stats.total_views, 1)}
+              color={C.pencil}
+              C={C}
+            />
+          </View>
+        </View>
+
+        {/* Emotion distribution */}
+        {emotionEntries.length > 0 && (
+          <View style={styles.chartCard}>
+            <Text variant="ui" style={styles.chartTitle}>Emociones que inspiras</Text>
+            <View style={styles.emotionBarsContainer}>
+              {emotionEntries.map(([emotion, count]) => {
+                const meta = EMOTION_META[emotion] ?? { emoji: '💫', label: emotion };
+                const pct = maxEmotion > 0 ? (count / maxEmotion) * 100 : 0;
+                return (
+                  <View key={emotion} style={styles.emotionBarRow}>
+                    <Text style={styles.emotionBarLabel}>
+                      {meta.emoji} {meta.label}
+                    </Text>
+                    <View style={styles.emotionBarTrack}>
+                      <View
+                        style={[
+                          styles.emotionBarFill,
+                          { width: `${Math.max(pct, 4)}%`, backgroundColor: C.wax },
+                        ]}
+                      />
+                    </View>
+                    <Text variant="ui" style={styles.emotionBarCount}>
+                      {count}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Quick stats row */}
+        <View style={styles.chartCard}>
+          <Text variant="ui" style={styles.chartTitle}>Total</Text>
+          <View style={styles.quickStatsRow}>
+            <View style={styles.quickStatItem}>
+              <Text variant="display" style={styles.quickStatValue}>
+                {formatStatNumber(stats.poem_count)}
+              </Text>
+              <Text variant="ui" style={styles.quickStatLabel}>Poemas</Text>
+            </View>
+            <View style={styles.quickStatDivider} />
+            <View style={styles.quickStatItem}>
+              <Text variant="display" style={styles.quickStatValue}>
+                {formatStatNumber(stats.total_bookmarks)}
+              </Text>
+              <Text variant="ui" style={styles.quickStatLabel}>Guardados</Text>
+            </View>
+            <View style={styles.quickStatDivider} />
+            <View style={styles.quickStatItem}>
+              <Text variant="display" style={styles.quickStatValue}>
+                {stats.published_count > 0
+                  ? (stats.total_likes / stats.published_count).toFixed(1)
+                  : '0'}
+              </Text>
+              <Text variant="ui" style={styles.quickStatLabel}>♥ / poema</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  // --------------- Render: Profile header ---------------
 
   const renderProfileHeader = () => (
     <View>
@@ -179,13 +375,6 @@ export default function ProfileScreen() {
           ODA
         </Text>
         <View style={styles.topBarActions}>
-          <Pressable onPress={toggleTheme} style={styles.iconBtn} hitSlop={8}>
-            <Ionicons
-              name={theme === 'dark' ? 'sunny-outline' : 'moon-outline'}
-              size={20}
-              color={C.ink}
-            />
-          </Pressable>
           <Pressable onPress={handleShareProfile} style={styles.iconBtn} hitSlop={8}>
             <Ionicons name="share-outline" size={20} color={C.ink} />
           </Pressable>
@@ -230,9 +419,14 @@ export default function ProfileScreen() {
           {user?.website ? (
             <Pressable
               style={styles.socialLink}
-              onPress={() => Linking.openURL(
-                user.website!.startsWith('http') ? user.website! : `https://${user.website}`
-              )}>
+              onPress={() =>
+                Linking.openURL(
+                  user.website!.startsWith('http')
+                    ? user.website!
+                    : `https://${user.website}`
+                )
+              }
+            >
               <Ionicons name="globe-outline" size={14} color={C.wax} />
               <Text variant="ui" style={styles.socialLinkText} numberOfLines={1}>
                 {user.website.replace(/^https?:\/\//, '')}
@@ -242,7 +436,10 @@ export default function ProfileScreen() {
           {user?.instagram ? (
             <Pressable
               style={styles.socialLink}
-              onPress={() => Linking.openURL(`https://instagram.com/${user.instagram}`)}>
+              onPress={() =>
+                Linking.openURL(`https://instagram.com/${user.instagram}`)
+              }
+            >
               <Ionicons name="logo-instagram" size={14} color={C.wax} />
               <Text variant="ui" style={styles.socialLinkText}>
                 @{user.instagram}
@@ -252,7 +449,8 @@ export default function ProfileScreen() {
           {user?.twitter ? (
             <Pressable
               style={styles.socialLink}
-              onPress={() => Linking.openURL(`https://x.com/${user.twitter}`)}>
+              onPress={() => Linking.openURL(`https://x.com/${user.twitter}`)}
+            >
               <Ionicons name="logo-twitter" size={14} color={C.wax} />
               <Text variant="ui" style={styles.socialLinkText}>
                 @{user.twitter}
@@ -262,18 +460,38 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Métricas de actividad — 2×2 grid */}
+      {/* Quick metrics — 2×2 grid */}
       <View style={styles.metricsCard}>
         <View style={styles.metricsRow}>
-          <StatPill value={stats?.published_count ?? 0} label="publicados" loading={isLoadingStats} C={C} />
+          <StatPill
+            value={stats?.published_count ?? 0}
+            label="publicados"
+            loading={isLoadingStats}
+            C={C}
+          />
           <View style={styles.statsDivider} />
-          <StatPill value={stats?.draft_count ?? 0} label="borradores" loading={isLoadingStats} C={C} />
+          <StatPill
+            value={stats?.draft_count ?? 0}
+            label="borradores"
+            loading={isLoadingStats}
+            C={C}
+          />
         </View>
         <View style={[styles.statsDivider, styles.statsHDivider]} />
         <View style={styles.metricsRow}>
-          <StatPill value={stats?.total_likes ?? 0} label="me gusta" loading={isLoadingStats} C={C} />
+          <StatPill
+            value={stats?.total_likes ?? 0}
+            label="me gusta"
+            loading={isLoadingStats}
+            C={C}
+          />
           <View style={styles.statsDivider} />
-          <StatPill value={stats?.total_views ?? 0} label="lecturas" loading={isLoadingStats} C={C} />
+          <StatPill
+            value={stats?.total_views ?? 0}
+            label="lecturas"
+            loading={isLoadingStats}
+            C={C}
+          />
         </View>
       </View>
 
@@ -286,23 +504,36 @@ export default function ProfileScreen() {
 
       {/* Tab switcher */}
       <View style={styles.tabRow}>
-        {(['published', 'draft', 'saved'] as ActiveTab[]).map((tab) => (
+        {(['published', 'draft', 'saved', 'stats'] as ActiveTab[]).map((tab) => (
           <Pressable
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => handleTabChange(tab)}>
+            onPress={() => handleTabChange(tab)}
+          >
             <Text
               variant="ui"
-              style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
-              {tab === 'published' ? 'Publicados' : tab === 'draft' ? 'Borradores' : 'Guardados'}
+              style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}
+            >
+              {tab === 'published'
+                ? 'Obras'
+                : tab === 'draft'
+                ? 'Borradores'
+                : tab === 'saved'
+                ? 'Guardados'
+                : 'Estadísticas'}
             </Text>
           </Pressable>
         ))}
       </View>
+
+      {/* If stats tab, render inline stats content */}
+      {activeTab === 'stats' && renderStatsContent()}
     </View>
   );
 
   const renderEmpty = () => {
+    if (activeTab === 'stats') return null; // stats has its own content
+
     if (isLoadingPoems) {
       return (
         <View style={styles.centered}>
@@ -346,8 +577,17 @@ export default function ProfileScreen() {
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.emptyBtn, { marginTop: 12, backgroundColor: 'transparent', borderWidth: 1, borderColor: C.ink }]}
-            onPress={() => router.push('/register')}>
+            style={[
+              styles.emptyBtn,
+              {
+                marginTop: 12,
+                backgroundColor: 'transparent',
+                borderWidth: 1,
+                borderColor: C.ink,
+              },
+            ]}
+            onPress={() => router.push('/register')}
+          >
             <Text variant="ui" style={[styles.emptyBtnText, { color: C.ink }]}>
               Crear cuenta
             </Text>
@@ -362,17 +602,48 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <FlatList<PoemResponse>
-        data={poems}
+        data={activeTab === 'stats' ? [] : poems}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.poemCardWrapper}>
-            <PoemCard poem={item} />
+            <PoemCard
+              poem={item}
+              onLike={toggleLike}
+              onBookmark={toggleBookmark}
+            />
+            {/* Draft actions */}
+            {activeTab === 'draft' && (
+              <View style={styles.draftActions}>
+                <Pressable
+                  style={styles.draftEditBtn}
+                  onPress={() => router.push(`/compose?id=${item.id}`)}
+                >
+                  <Ionicons name="create-outline" size={14} color={C.ink} />
+                  <Text variant="ui" style={styles.draftEditText}>
+                    Editar
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.draftPublishBtn}
+                  onPress={() => publishDraft(item.id)}
+                >
+                  <Ionicons name="rocket-outline" size={14} color={C.paper} />
+                  <Text variant="ui" style={styles.draftPublishText}>
+                    Publicar
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
         ListHeaderComponent={renderProfileHeader}
         ListEmptyComponent={renderEmpty}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={C.ink} />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refresh}
+            tintColor={C.ink}
+          />
         }
         contentContainerStyle={styles.listContent}
       />
@@ -382,10 +653,12 @@ export default function ProfileScreen() {
         visible={editVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setEditVisible(false)}>
+        onRequestClose={() => setEditVisible(false)}
+      >
         <KeyboardAvoidingView
           style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalHeader}>
             <Pressable onPress={() => setEditVisible(false)}>
               <Text variant="ui" style={styles.modalCancel}>
@@ -413,7 +686,9 @@ export default function ProfileScreen() {
               </Text>
             ) : null}
 
-            <Text variant="ui" style={styles.fieldLabel}>Nombre</Text>
+            <Text variant="ui" style={styles.fieldLabel}>
+              Nombre
+            </Text>
             <TextInput
               style={styles.fieldInput}
               value={editName}
@@ -423,7 +698,9 @@ export default function ProfileScreen() {
               maxLength={80}
             />
 
-            <Text variant="ui" style={styles.fieldLabel}>Bio</Text>
+            <Text variant="ui" style={styles.fieldLabel}>
+              Bio
+            </Text>
             <TextInput
               style={[styles.fieldInput, styles.fieldInputMultiline]}
               value={editBio}
@@ -434,9 +711,13 @@ export default function ProfileScreen() {
               numberOfLines={4}
               maxLength={300}
             />
-            <Text variant="ui" style={styles.charCount}>{editBio.length}/300</Text>
+            <Text variant="ui" style={styles.charCount}>
+              {editBio.length}/300
+            </Text>
 
-            <Text variant="ui" style={styles.fieldLabel}>Sitio web</Text>
+            <Text variant="ui" style={styles.fieldLabel}>
+              Sitio web
+            </Text>
             <TextInput
               style={styles.fieldInput}
               value={editWebsite}
@@ -448,7 +729,9 @@ export default function ProfileScreen() {
               maxLength={200}
             />
 
-            <Text variant="ui" style={styles.fieldLabel}>Instagram</Text>
+            <Text variant="ui" style={styles.fieldLabel}>
+              Instagram
+            </Text>
             <TextInput
               style={styles.fieldInput}
               value={editInstagram}
@@ -459,7 +742,9 @@ export default function ProfileScreen() {
               maxLength={60}
             />
 
-            <Text variant="ui" style={styles.fieldLabel}>Twitter / X</Text>
+            <Text variant="ui" style={styles.fieldLabel}>
+              Twitter / X
+            </Text>
             <TextInput
               style={[styles.fieldInput, { marginBottom: Spacing['2xl'] }]}
               value={editTwitter}
@@ -476,7 +761,7 @@ export default function ProfileScreen() {
   );
 }
 
-// --------------- StatPill ---------------
+// ─── Sub-components ─────────────────────────────────────────────────────────
 
 function StatPill({
   value,
@@ -498,9 +783,114 @@ function StatPill({
           {formatStatNumber(value)}
         </Text>
       )}
-      <Text variant="ui" style={{ fontSize: 10, color: C.pencil, textTransform: 'uppercase', letterSpacing: 1 }}>
+      <Text
+        variant="ui"
+        style={{
+          fontSize: 10,
+          color: C.pencil,
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+        }}
+      >
         {label}
       </Text>
+    </View>
+  );
+}
+
+function KpiCard({
+  icon,
+  value,
+  label,
+  C,
+}: {
+  icon: string;
+  value: number;
+  label: string;
+  C: ThemeColors;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: C.surface,
+        borderRadius: 12,
+        padding: Spacing.md,
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: C.border.light,
+      }}
+    >
+      <Ionicons name={icon as any} size={20} color={C.wax} />
+      <Text
+        variant="display"
+        style={{ fontSize: 24, color: C.ink, marginTop: 4 }}
+      >
+        {formatStatNumber(value)}
+      </Text>
+      <Text
+        variant="ui"
+        style={{
+          fontSize: 9,
+          color: C.pencil,
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          marginTop: 2,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function BarItem({
+  label,
+  value,
+  max,
+  color,
+  C,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  color: string;
+  C: ThemeColors;
+}) {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <View style={{ gap: 4 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text
+          variant="ui"
+          style={{ fontSize: 11, color: C.pencil, letterSpacing: 0.5 }}
+        >
+          {label}
+        </Text>
+        <Text
+          variant="ui"
+          style={{ fontSize: 11, color: C.ink, fontWeight: '600' }}
+        >
+          {formatStatNumber(value)}
+        </Text>
+      </View>
+      <View
+        style={{
+          height: 8,
+          backgroundColor: `${C.pencil}20`,
+          borderRadius: 4,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            height: '100%',
+            width: `${Math.max(pct, 2)}%`,
+            backgroundColor: color,
+            borderRadius: 4,
+          }}
+        />
+      </View>
     </View>
   );
 }
@@ -510,7 +900,7 @@ function formatStatNumber(n: number): string {
   return String(n);
 }
 
-// --------------- Styles ---------------
+// ─── Styles ─────────────────────────────────────────────────────────────────
 
 function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
@@ -686,10 +1076,10 @@ function makeStyles(C: ThemeColors) {
       borderBottomColor: C.wax,
     },
     tabLabel: {
-      fontSize: Typography.fontSize.sm,
+      fontSize: Typography.fontSize.xs,
       color: C.pencil,
       textTransform: 'uppercase',
-      letterSpacing: 1.5,
+      letterSpacing: 1,
     },
     tabLabelActive: {
       color: C.ink,
@@ -699,6 +1089,126 @@ function makeStyles(C: ThemeColors) {
     poemCardWrapper: {
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.xs,
+    },
+    draftActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 8,
+      paddingHorizontal: Spacing.sm,
+      paddingTop: Spacing.xs,
+    },
+    draftEditBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs + 2,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: C.ink,
+    },
+    draftEditText: {
+      fontSize: Typography.fontSize.xs,
+      color: C.ink,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+    draftPublishBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs + 2,
+      borderRadius: 16,
+      backgroundColor: C.wax,
+    },
+    draftPublishText: {
+      fontSize: Typography.fontSize.xs,
+      color: C.paper,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+
+    // Stats content
+    statsContainer: {
+      padding: Spacing.md,
+      gap: Spacing.md,
+    },
+    kpiGrid: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    chartCard: {
+      backgroundColor: C.surface,
+      borderRadius: 12,
+      padding: Spacing.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border.light,
+    },
+    chartTitle: {
+      fontSize: Typography.fontSize.xs,
+      color: C.pencil,
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      marginBottom: Spacing.md,
+    },
+    barChartContainer: {
+      gap: Spacing.sm,
+    },
+    emotionBarsContainer: {
+      gap: 10,
+    },
+    emotionBarRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    emotionBarLabel: {
+      fontFamily: Typography.fontFamily.ui,
+      fontSize: 12,
+      color: C.ink,
+      width: 90,
+    },
+    emotionBarTrack: {
+      flex: 1,
+      height: 10,
+      backgroundColor: `${C.pencil}18`,
+      borderRadius: 5,
+      overflow: 'hidden',
+    },
+    emotionBarFill: {
+      height: '100%',
+      borderRadius: 5,
+    },
+    emotionBarCount: {
+      fontSize: 11,
+      color: C.pencil,
+      width: 28,
+      textAlign: 'right',
+    },
+    quickStatsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    quickStatItem: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 2,
+    },
+    quickStatDivider: {
+      width: StyleSheet.hairlineWidth,
+      height: 28,
+      backgroundColor: C.border.medium,
+    },
+    quickStatValue: {
+      fontSize: 20,
+      color: C.ink,
+    },
+    quickStatLabel: {
+      fontSize: 9,
+      color: C.pencil,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
     },
 
     // Empty / loading states

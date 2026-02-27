@@ -70,4 +70,15 @@ export const usersApi = {
     const response = await apiClient.get(`/users/${userId}/poems`, { params });
     return response.data as any[];
   },
+
+  /**
+   * Change the authenticated user's password
+   */
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await apiClient.put('/auth/me/password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+    return response.data;
+  },
 };
