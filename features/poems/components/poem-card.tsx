@@ -37,18 +37,21 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
 
   const handleShare = (e: any) => {
     e.stopPropagation();
+    const text = `${poem.title}\n\n${poem.content}\n\n— ${poem.author?.name ?? ''}`;
     if (Platform.OS === 'web') {
-      // Fallback for web: copy to clipboard or use navigator.share if available
-      const text = `${poem.title}\n\n${poem.content}\n\n— ${poem.author?.name ?? ''}`;
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(text).catch(() => {});
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        (navigator as any)
+          .share({ title: poem.title, text })
+          .catch(() => {});
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard
+          .writeText(text)
+          .then(() => alert('¡Copiado al portapapeles!'))
+          .catch(() => {});
       }
       return;
     }
-    Share.share({
-      title: poem.title,
-      message: `${poem.title}\n\n${poem.content}\n\n— ${poem.author?.name ?? ''}`,
-    }).catch(() => {});
+    Share.share({ title: poem.title, message: text }).catch(() => {});
   };
 
   // Show up to 3 lines of content

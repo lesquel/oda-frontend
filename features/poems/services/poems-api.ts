@@ -9,6 +9,15 @@ import type {
   PoemStatus
 } from '../types/poem';
 
+export interface EmotionCatalogEntry {
+  id: string;
+  slug: string;
+  label: string;
+  emoji: string;
+  description: string;
+  display_order: number;
+}
+
 export interface GetFeedParams {
   cursor?: string;
   limit?: number;
@@ -143,6 +152,14 @@ export const poemsApi = {
    */
   getUserBookmarks: async (): Promise<PoemResponse[]> => {
     const response = await apiClient.get<PoemResponse[]>('/bookmarks');
+    return response.data;
+  },
+
+  /**
+   * Get the full emotion catalog from the backend
+   */
+  getEmotionCatalog: async (): Promise<EmotionCatalogEntry[]> => {
+    const response = await apiClient.get<EmotionCatalogEntry[]>('/emotions');
     return response.data;
   },
 };
