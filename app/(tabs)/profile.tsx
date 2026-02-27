@@ -262,28 +262,19 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <StatPill
-          value={stats?.published_count ?? 0}
-          label="publicados"
-          loading={isLoadingStats}
-          C={C}
-        />
-        <View style={styles.statsDivider} />
-        <StatPill
-          value={stats?.total_likes ?? 0}
-          label="me gusta"
-          loading={isLoadingStats}
-          C={C}
-        />
-        <View style={styles.statsDivider} />
-        <StatPill
-          value={stats?.total_views ?? 0}
-          label="lecturas"
-          loading={isLoadingStats}
-          C={C}
-        />
+      {/* Métricas de actividad — 2×2 grid */}
+      <View style={styles.metricsCard}>
+        <View style={styles.metricsRow}>
+          <StatPill value={stats?.published_count ?? 0} label="publicados" loading={isLoadingStats} C={C} />
+          <View style={styles.statsDivider} />
+          <StatPill value={stats?.draft_count ?? 0} label="borradores" loading={isLoadingStats} C={C} />
+        </View>
+        <View style={[styles.statsDivider, styles.statsHDivider]} />
+        <View style={styles.metricsRow}>
+          <StatPill value={stats?.total_likes ?? 0} label="me gusta" loading={isLoadingStats} C={C} />
+          <View style={styles.statsDivider} />
+          <StatPill value={stats?.total_views ?? 0} label="lecturas" loading={isLoadingStats} C={C} />
+        </View>
       </View>
 
       {/* Compose CTA */}
@@ -635,24 +626,31 @@ function makeStyles(C: ThemeColors) {
       maxWidth: 120,
     },
 
-    // Stats
-    statsRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingVertical: Spacing.lg,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border.light,
+    // Metrics card (2×2 grid)
+    metricsCard: {
       marginHorizontal: Spacing.md,
       borderRadius: 12,
       backgroundColor: C.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border.light,
       marginBottom: Spacing.lg,
+      overflow: 'hidden',
+    },
+    metricsRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: Spacing.md,
     },
     statsDivider: {
       width: StyleSheet.hairlineWidth,
       height: 32,
       backgroundColor: C.border.medium,
+    },
+    statsHDivider: {
+      width: '100%',
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: C.border.light,
     },
 
     // Compose CTA

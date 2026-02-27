@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   TextInput,
@@ -15,7 +15,8 @@ import { Text } from '@/components/ui/text';
 import { PoemCard } from '@/features/poems/components/poem-card';
 import { poemsApi } from '@/features/poems/services/poems-api';
 import type { PoemResponse, PublicUserProfile, EmotionType } from '@/features/poems/types/poem';
-import { Colors, Typography, Spacing, Shadows } from '@/constants/colors';
+import { Typography, Spacing, Shadows } from '@/constants/colors';
+import { useThemedColors } from '@/hooks/use-themed-colors';
 
 type SearchTab = 'poems' | 'people' | 'emotions';
 
@@ -29,6 +30,9 @@ const EMOTIONS: { key: EmotionType; label: string; emoji: string }[] = [
 ];
 
 export default function ExploreScreen() {
+  const C = useThemedColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
+
   const [tab, setTab] = useState<SearchTab>('poems');
   const [query, setQuery] = useState('');
   const [poems, setPoems] = useState<PoemResponse[]>([]);
@@ -96,7 +100,7 @@ export default function ExploreScreen() {
   const renderUserItem = ({ item }: { item: PublicUserProfile }) => (
     <Pressable
       style={styles.userRow}
-      onPress={() => router.push(`/profile/${item.username}` as any)}>
+      onPress={() => router.push(`/user/${item.username}` as any)}>
       <View style={styles.avatarCircle}>
         {item.avatar ? (
           <Image source={{ uri: item.avatar }} style={styles.avatar} />
@@ -113,7 +117,7 @@ export default function ExploreScreen() {
           <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={Colors.pencil} />
+      <Ionicons name="chevron-forward" size={16} color={C.pencil} />
     </Pressable>
   );
 
@@ -128,7 +132,7 @@ export default function ExploreScreen() {
 
       {/* Search bar */}
       <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={18} color={Colors.pencil} style={styles.searchIcon} />
+        <Ionicons name="search-outline" size={18} color={C.pencil} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           value={query}
@@ -138,12 +142,12 @@ export default function ExploreScreen() {
             tab === 'people'  ? 'Buscar personas…' :
                                 'Elige una emoción…'
           }
-          placeholderTextColor={Colors.pencil}
+          placeholderTextColor={C.pencil}
           editable={tab !== 'emotions'}
         />
         {query.length > 0 && (
           <Pressable onPress={() => { setQuery(''); setPoems([]); setUsers([]); }}>
-            <Ionicons name="close-circle" size={18} color={Colors.pencil} />
+            <Ionicons name="close-circle" size={18} color={C.pencil} />
           </Pressable>
         )}
       </View>
@@ -172,7 +176,7 @@ export default function ExploreScreen() {
       {/* Content */}
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={Colors.ink} />
+          <ActivityIndicator color={C.ink} />
         </View>
       ) : tab === 'emotions' ? (
         <FlatList
@@ -250,8 +254,11 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.paper },
+type ThemeColors = ReturnType<typeof useThemedColors>;
+
+function makeStyles(C: ThemeColors) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.paper },
 
   header: {
     paddingHorizontal: Spacing.lg,
@@ -261,20 +268,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Typography.fontFamily.display,
     fontSize: 30,
-    color: Colors.ink,
+    color: C.ink,
   },
 
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     borderRadius: 8,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: Colors.border.light,
+    borderColor: C.border.light,
     ...Shadows.lift,
   },
   searchIcon: { marginRight: 8 },
@@ -282,7 +289,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Typography.fontFamily.ui,
     fontSize: 14,
-    color: Colors.ink,
+    color: C.ink,
   },
 
   tabRow: {
@@ -296,22 +303,22 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: Colors.border.light,
+    borderColor: C.border.light,
     alignItems: 'center',
   },
   tabBtnActive: {
-    backgroundColor: Colors.ink,
-    borderColor: Colors.ink,
+    backgroundColor: C.ink,
+    borderColor: C.ink,
   },
   tabLabel: {
     fontFamily: Typography.fontFamily.ui,
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.pencil,
+    color: C.pencil,
   },
   tabLabelActive: {
-    color: Colors.paper,
+    color: C.paper,
   },
 
   centered: {
@@ -323,7 +330,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: Typography.fontFamily.ui,
     fontSize: 13,
-    color: Colors.pencil,
+    color: C.pencil,
     textAlign: 'center',
   },
 
@@ -338,19 +345,19 @@ const styles = StyleSheet.create({
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderRadius: 8,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.border.light,
+    borderColor: C.border.light,
     ...Shadows.lift,
   },
   avatarCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.border.light,
+    backgroundColor: C.border.light,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -360,24 +367,24 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontFamily: Typography.fontFamily.uiBold,
     fontSize: 18,
-    color: Colors.ink,
+    color: C.ink,
   },
   userInfo: { flex: 1 },
   userName: {
     fontFamily: Typography.fontFamily.uiBold,
     fontSize: 13,
-    color: Colors.ink,
+    color: C.ink,
   },
   userHandle: {
     fontFamily: Typography.fontFamily.ui,
     fontSize: 11,
-    color: Colors.pencil,
+    color: C.pencil,
     marginTop: 1,
   },
   userBio: {
     fontFamily: Typography.fontFamily.bodyItalic,
     fontSize: 12,
-    color: Colors.pencil,
+    color: C.pencil,
     marginTop: 2,
   },
 
@@ -394,21 +401,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: Colors.border.light,
+    borderColor: C.border.light,
   },
   emotionChipActive: {
-    backgroundColor: Colors.ink,
-    borderColor: Colors.ink,
+    backgroundColor: C.ink,
+    borderColor: C.ink,
   },
   emotionEmoji: { fontSize: 16 },
   emotionLabel: {
     fontFamily: Typography.fontFamily.ui,
     fontSize: 12,
-    color: Colors.ink,
+    color: C.ink,
   },
   emotionLabelActive: {
-    color: Colors.paper,
+    color: C.paper,
   },
-});
+  });
+}

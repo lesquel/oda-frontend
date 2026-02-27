@@ -82,12 +82,17 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
           <View style={styles.footerRight}>
             <Text style={styles.authorName}>{poem.author?.name}</Text>
             <View style={styles.actions}>
-              {/* Like */}
-              {isAuthenticated && (
+              {/* Like — count always visible; interactive only when authenticated */}
+              {isAuthenticated ? (
                 <Pressable onPress={handleLike} style={styles.actionBtn} hitSlop={8}>
                   <Text style={styles.likeIcon}>{poem.is_liked ? '❤️' : '🤍'}</Text>
                   <Text style={styles.likeCount}>{poem.like_count}</Text>
                 </Pressable>
+              ) : (
+                <View style={styles.actionBtn}>
+                  <Text style={styles.likeIcon}>🤍</Text>
+                  <Text style={styles.likeCount}>{poem.like_count}</Text>
+                </View>
               )}
               {/* Bookmark */}
               {isAuthenticated && (

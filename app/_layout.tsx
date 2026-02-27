@@ -77,6 +77,7 @@ export default function RootLayout() {
         <Stack.Screen name="register" />
         <Stack.Screen name="poem/[id]" />
         <Stack.Screen name="user/[username]" />
+        <Stack.Screen name="profile/[username]" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
