@@ -3,40 +3,35 @@ import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/colors';
+import { useThemedColors } from '@/hooks/use-themed-colors';
 
 export default function TabLayout() {
+  const C = useThemedColors();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.ink,
-        tabBarInactiveTintColor: Colors.pencil,
+        tabBarActiveTintColor: C.wax,
+        tabBarInactiveTintColor: C.pencil,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.border.light,
+          backgroundColor: C.surface,
+          borderTopColor: C.border.light,
           borderTopWidth: 1,
         },
       }}>
+      {/* Home — left */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Poemas',
+          title: 'Inicio',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="book-outline" size={size} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      {/* Search — centre */}
       <Tabs.Screen
         name="explore"
         options={{
@@ -46,6 +41,17 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Profile — right */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
+

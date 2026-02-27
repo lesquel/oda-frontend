@@ -4,6 +4,9 @@ export interface UpdateProfileRequest {
   name?: string;
   bio?: string;
   avatar?: string;
+  website?: string;
+  instagram?: string;
+  twitter?: string;
 }
 
 export interface PublicUserProfile {
@@ -12,6 +15,9 @@ export interface PublicUserProfile {
   name: string;
   bio?: string;
   avatar?: string;
+  website?: string;
+  instagram?: string;
+  twitter?: string;
   created_at: string;
 }
 

@@ -11,8 +11,10 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Linking,
+  Share,
 } from 'react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
@@ -20,19 +22,36 @@ import { PoemCard } from '@/features/poems/components/poem-card';
 import { useAuthStore } from '@/features/auth/store/auth-store';
 import { usersApi, UserStats } from '@/features/users/services/users-api';
 import { poemsApi } from '@/features/poems/services/poems-api';
-import type { Poem, PoemResponse } from '@/features/poems/types/poem';
-import { Colors, Typography, Spacing } from '@/constants/colors';
+import type { PoemResponse } from '@/features/poems/types/poem';
+import { Typography, Spacing } from '@/constants/colors';
 import { useThemeStore } from '@/store/theme-store';
+import { useThemedColors } from '@/hooks/use-themed-colors';
 
 type ActiveTab = 'published' | 'draft' | 'saved';
+type ThemeColors = ReturnType<typeof useThemedColors>;
 
 export default function ProfileScreen() {
   const { user, isLoading: authLoading, updateProfile, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const C = useThemedColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
 
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
+  };
+
+  const handleShareProfile = () => {
+    if (!user) return;
+    const url = `https://oda.app/user/${user.username}`;
+    const msg = `${user.name} (@${user.username}) en Oda — ${url}`;
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      }
+      return;
+    }
+    Share.share({ title: user.name, message: msg }).catch(() => {});
   };
 
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -46,6 +65,9 @@ export default function ProfileScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
+  const [editInstagram, setEditInstagram] = useState('');
+  const [editTwitter, setEditTwitter] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -58,7 +80,7 @@ export default function ProfileScreen() {
       const data = await usersApi.getUserStats(user.id);
       setStats(data);
     } catch {
-      // Stats not critical, silently fail
+      // Stats not critical
     } finally {
       setIsLoadingStats(false);
     }
@@ -74,7 +96,7 @@ export default function ProfileScreen() {
           setPoems(data);
         } else {
           const data = await usersApi.getUserPoems(user.id, tab as 'published' | 'draft');
-          setPoems(data.map(p => ({ ...p, is_liked: false, is_bookmarked: false })));
+          setPoems(data.map((p) => ({ ...p, is_liked: false, is_bookmarked: false })));
         }
       } catch {
         setPoems([]);
@@ -108,6 +130,9 @@ export default function ProfileScreen() {
   const openEdit = () => {
     setEditName(user?.name ?? '');
     setEditBio(user?.bio ?? '');
+    setEditWebsite(user?.website ?? '');
+    setEditInstagram(user?.instagram ?? '');
+    setEditTwitter(user?.twitter ?? '');
     setEditError(null);
     setEditVisible(true);
   };
@@ -120,7 +145,13 @@ export default function ProfileScreen() {
     try {
       setIsSaving(true);
       setEditError(null);
-      await updateProfile({ name: editName.trim(), bio: editBio.trim() });
+      await updateProfile({
+        name: editName.trim(),
+        bio: editBio.trim(),
+        website: editWebsite.trim(),
+        instagram: editInstagram.trim().replace(/^@/, ''),
+        twitter: editTwitter.trim().replace(/^@/, ''),
+      });
       setEditVisible(false);
     } catch (err: any) {
       setEditError(err.response?.data?.error ?? 'Error al guardar');
@@ -152,8 +183,11 @@ export default function ProfileScreen() {
             <Ionicons
               name={theme === 'dark' ? 'sunny-outline' : 'moon-outline'}
               size={20}
-              color={Colors.ink}
+              color={C.ink}
             />
+          </Pressable>
+          <Pressable onPress={handleShareProfile} style={styles.iconBtn} hitSlop={8}>
+            <Ionicons name="share-outline" size={20} color={C.ink} />
           </Pressable>
           <Pressable style={styles.editBtn} onPress={openEdit}>
             <Text variant="ui" style={styles.editBtnText}>
@@ -161,7 +195,7 @@ export default function ProfileScreen() {
             </Text>
           </Pressable>
           <Pressable onPress={handleLogout} style={styles.iconBtn} hitSlop={8}>
-            <Ionicons name="log-out-outline" size={20} color={Colors.wax} />
+            <Ionicons name="log-out-outline" size={20} color={C.wax} />
           </Pressable>
         </View>
       </View>
@@ -190,6 +224,42 @@ export default function ProfileScreen() {
             </Text>
           </Pressable>
         )}
+
+        {/* Social links */}
+        <View style={styles.socialRow}>
+          {user?.website ? (
+            <Pressable
+              style={styles.socialLink}
+              onPress={() => Linking.openURL(
+                user.website!.startsWith('http') ? user.website! : `https://${user.website}`
+              )}>
+              <Ionicons name="globe-outline" size={14} color={C.wax} />
+              <Text variant="ui" style={styles.socialLinkText} numberOfLines={1}>
+                {user.website.replace(/^https?:\/\//, '')}
+              </Text>
+            </Pressable>
+          ) : null}
+          {user?.instagram ? (
+            <Pressable
+              style={styles.socialLink}
+              onPress={() => Linking.openURL(`https://instagram.com/${user.instagram}`)}>
+              <Ionicons name="logo-instagram" size={14} color={C.wax} />
+              <Text variant="ui" style={styles.socialLinkText}>
+                @{user.instagram}
+              </Text>
+            </Pressable>
+          ) : null}
+          {user?.twitter ? (
+            <Pressable
+              style={styles.socialLink}
+              onPress={() => Linking.openURL(`https://x.com/${user.twitter}`)}>
+              <Ionicons name="logo-twitter" size={14} color={C.wax} />
+              <Text variant="ui" style={styles.socialLinkText}>
+                @{user.twitter}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       {/* Stats row */}
@@ -198,25 +268,26 @@ export default function ProfileScreen() {
           value={stats?.published_count ?? 0}
           label="publicados"
           loading={isLoadingStats}
+          C={C}
         />
         <View style={styles.statsDivider} />
         <StatPill
           value={stats?.total_likes ?? 0}
           label="me gusta"
           loading={isLoadingStats}
+          C={C}
         />
         <View style={styles.statsDivider} />
         <StatPill
           value={stats?.total_views ?? 0}
           label="lecturas"
           loading={isLoadingStats}
+          C={C}
         />
       </View>
 
       {/* Compose CTA */}
-      <Pressable
-        style={styles.composeCta}
-        onPress={() => router.push('/compose')}>
+      <Pressable style={styles.composeCta} onPress={() => router.push('/compose')}>
         <Text variant="ui" style={styles.composeCtaText}>
           ✍️  Escribir poema
         </Text>
@@ -224,42 +295,18 @@ export default function ProfileScreen() {
 
       {/* Tab switcher */}
       <View style={styles.tabRow}>
-        <Pressable
-          style={[styles.tab, activeTab === 'published' && styles.tabActive]}
-          onPress={() => handleTabChange('published')}>
-          <Text
-            variant="ui"
-            style={[
-              styles.tabLabel,
-              activeTab === 'published' && styles.tabLabelActive,
-            ]}>
-            Publicados
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === 'draft' && styles.tabActive]}
-          onPress={() => handleTabChange('draft')}>
-          <Text
-            variant="ui"
-            style={[
-              styles.tabLabel,
-              activeTab === 'draft' && styles.tabLabelActive,
-            ]}>
-            Borradores
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === 'saved' && styles.tabActive]}
-          onPress={() => handleTabChange('saved')}>
-          <Text
-            variant="ui"
-            style={[
-              styles.tabLabel,
-              activeTab === 'saved' && styles.tabLabelActive,
-            ]}>
-            Guardados
-          </Text>
-        </Pressable>
+        {(['published', 'draft', 'saved'] as ActiveTab[]).map((tab) => (
+          <Pressable
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => handleTabChange(tab)}>
+            <Text
+              variant="ui"
+              style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
+              {tab === 'published' ? 'Publicados' : tab === 'draft' ? 'Borradores' : 'Guardados'}
+            </Text>
+          </Pressable>
+        ))}
       </View>
     </View>
   );
@@ -268,7 +315,7 @@ export default function ProfileScreen() {
     if (isLoadingPoems) {
       return (
         <View style={styles.centered}>
-          <ActivityIndicator color={Colors.ink} />
+          <ActivityIndicator color={C.ink} />
         </View>
       );
     }
@@ -281,9 +328,7 @@ export default function ProfileScreen() {
             ? 'No tienes borradores guardados'
             : 'No tienes poemas guardados aún'}
         </Text>
-        <Pressable
-          style={styles.emptyBtn}
-          onPress={() => router.push('/compose')}>
+        <Pressable style={styles.emptyBtn} onPress={() => router.push('/compose')}>
           <Text variant="ui" style={styles.emptyBtnText}>
             Escribir ahora
           </Text>
@@ -304,17 +349,15 @@ export default function ProfileScreen() {
           <Text variant="body" style={styles.emptyText}>
             Inicia sesión para ver tu perfil
           </Text>
-          <Pressable
-            style={styles.emptyBtn}
-            onPress={() => router.push('/login')}>
+          <Pressable style={styles.emptyBtn} onPress={() => router.push('/login')}>
             <Text variant="ui" style={styles.emptyBtnText}>
               Iniciar sesión
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.emptyBtn, { marginTop: 12, backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.ink }]}
+            style={[styles.emptyBtn, { marginTop: 12, backgroundColor: 'transparent', borderWidth: 1, borderColor: C.ink }]}
             onPress={() => router.push('/register')}>
-            <Text variant="ui" style={[styles.emptyBtnText, { color: Colors.ink }]}>
+            <Text variant="ui" style={[styles.emptyBtnText, { color: C.ink }]}>
               Crear cuenta
             </Text>
           </Pressable>
@@ -332,19 +375,13 @@ export default function ProfileScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.poemCardWrapper}>
-            <PoemCard
-              poem={item}
-            />
+            <PoemCard poem={item} />
           </View>
         )}
         ListHeaderComponent={renderProfileHeader}
         ListEmptyComponent={renderEmpty}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={refresh}
-            tintColor={Colors.ink}
-          />
+          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={C.ink} />
         }
         contentContainerStyle={styles.listContent}
       />
@@ -369,7 +406,7 @@ export default function ProfileScreen() {
             </Text>
             <Pressable onPress={saveProfile} disabled={isSaving}>
               {isSaving ? (
-                <ActivityIndicator color={Colors.wax} size="small" />
+                <ActivityIndicator color={C.wax} size="small" />
               ) : (
                 <Text variant="uiBold" style={styles.modalSave}>
                   Guardar
@@ -378,43 +415,69 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
 
-          <ScrollView
-            style={styles.modalBody}
-            keyboardShouldPersistTaps="handled">
+          <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
             {editError ? (
               <Text variant="ui" style={styles.modalError}>
                 {editError}
               </Text>
             ) : null}
 
-            <Text variant="ui" style={styles.fieldLabel}>
-              Nombre
-            </Text>
+            <Text variant="ui" style={styles.fieldLabel}>Nombre</Text>
             <TextInput
               style={styles.fieldInput}
               value={editName}
               onChangeText={setEditName}
               placeholder="Tu nombre"
-              placeholderTextColor={Colors.pencil}
+              placeholderTextColor={C.pencil}
               maxLength={80}
             />
 
-            <Text variant="ui" style={styles.fieldLabel}>
-              Bio
-            </Text>
+            <Text variant="ui" style={styles.fieldLabel}>Bio</Text>
             <TextInput
               style={[styles.fieldInput, styles.fieldInputMultiline]}
               value={editBio}
               onChangeText={setEditBio}
               placeholder="Una frase que te defina..."
-              placeholderTextColor={Colors.pencil}
+              placeholderTextColor={C.pencil}
               multiline
               numberOfLines={4}
-              maxLength={240}
+              maxLength={300}
             />
-            <Text variant="ui" style={styles.charCount}>
-              {editBio.length}/240
-            </Text>
+            <Text variant="ui" style={styles.charCount}>{editBio.length}/300</Text>
+
+            <Text variant="ui" style={styles.fieldLabel}>Sitio web</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={editWebsite}
+              onChangeText={setEditWebsite}
+              placeholder="https://tu-web.com"
+              placeholderTextColor={C.pencil}
+              autoCapitalize="none"
+              keyboardType="url"
+              maxLength={200}
+            />
+
+            <Text variant="ui" style={styles.fieldLabel}>Instagram</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={editInstagram}
+              onChangeText={setEditInstagram}
+              placeholder="@usuario"
+              placeholderTextColor={C.pencil}
+              autoCapitalize="none"
+              maxLength={60}
+            />
+
+            <Text variant="ui" style={styles.fieldLabel}>Twitter / X</Text>
+            <TextInput
+              style={[styles.fieldInput, { marginBottom: Spacing['2xl'] }]}
+              value={editTwitter}
+              onChangeText={setEditTwitter}
+              placeholder="@usuario"
+              placeholderTextColor={C.pencil}
+              autoCapitalize="none"
+              maxLength={60}
+            />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -428,21 +491,23 @@ function StatPill({
   value,
   label,
   loading,
+  C,
 }: {
   value: number;
   label: string;
   loading: boolean;
+  C: ThemeColors;
 }) {
   return (
-    <View style={styles.statPill}>
+    <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
       {loading ? (
-        <ActivityIndicator color={Colors.ink} size="small" />
+        <ActivityIndicator color={C.ink} size="small" />
       ) : (
-        <Text variant="display" style={styles.statValue}>
+        <Text variant="display" style={{ fontSize: 22, color: C.ink }}>
           {formatStatNumber(value)}
         </Text>
       )}
-      <Text variant="ui" style={styles.statLabel}>
+      <Text variant="ui" style={{ fontSize: 10, color: C.pencil, textTransform: 'uppercase', letterSpacing: 1 }}>
         {label}
       </Text>
     </View>
@@ -456,273 +521,280 @@ function formatStatNumber(n: number): string {
 
 // --------------- Styles ---------------
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.paper,
-  },
-  listContent: {
-    paddingBottom: Spacing['2xl'],
-  },
+function makeStyles(C: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.paper,
+    },
+    listContent: {
+      paddingBottom: Spacing['2xl'],
+    },
 
-  // Top bar
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border.light,
-  },
-  topBarActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appTitle: {
-    fontSize: Typography.fontSize['3xl'],
-    letterSpacing: 8,
-    color: Colors.ink,
-  },
-  editBtn: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.ink,
-  },
-  editBtnText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.ink,
-  },
+    // Top bar
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.md,
+      paddingBottom: Spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: C.border.light,
+    },
+    topBarActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    iconBtn: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appTitle: {
+      fontSize: Typography.fontSize['3xl'],
+      letterSpacing: 8,
+      color: C.ink,
+    },
+    editBtn: {
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.ink,
+    },
+    editBtnText: {
+      fontSize: Typography.fontSize.sm,
+      color: C.ink,
+    },
 
-  // Hero
-  heroSection: {
-    alignItems: 'center',
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-  },
-  avatarCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.wax,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
-  },
-  avatarText: {
-    fontSize: Typography.fontSize['2xl'],
-    color: '#fff',
-    letterSpacing: 2,
-  },
-  displayName: {
-    fontSize: Typography.fontSize['2xl'],
-    color: Colors.ink,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  username: {
-    fontSize: Typography.fontSize.lg,
-    color: Colors.pencil,
-    marginBottom: Spacing.sm,
-  },
-  bio: {
-    fontSize: Typography.fontSize.lg,
-    color: Colors.ink,
-    textAlign: 'center',
-    lineHeight: Typography.fontSize.lg * Typography.lineHeight.relaxed,
-    maxWidth: 280,
-  },
-  bioPlaceholder: {
-    fontSize: Typography.fontSize.base,
-    color: Colors.pencil,
-    textDecorationLine: 'underline',
-  },
+    // Hero
+    heroSection: {
+      alignItems: 'center',
+      paddingTop: Spacing.xl,
+      paddingBottom: Spacing.lg,
+      paddingHorizontal: Spacing.lg,
+    },
+    avatarCircle: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      backgroundColor: C.wax,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: Spacing.md,
+    },
+    avatarText: {
+      fontSize: Typography.fontSize['2xl'],
+      color: '#fff',
+      letterSpacing: 2,
+    },
+    displayName: {
+      fontSize: Typography.fontSize['2xl'],
+      color: C.ink,
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    username: {
+      fontSize: Typography.fontSize.base,
+      color: C.pencil,
+      marginBottom: Spacing.sm,
+    },
+    bio: {
+      fontSize: Typography.fontSize.base,
+      color: C.ink,
+      textAlign: 'center',
+      lineHeight: Typography.fontSize.base * Typography.lineHeight.relaxed,
+      maxWidth: 300,
+      marginBottom: Spacing.sm,
+    },
+    bioPlaceholder: {
+      fontSize: Typography.fontSize.base,
+      color: C.pencil,
+      textDecorationLine: 'underline',
+    },
 
-  // Stats
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border.light,
-    marginHorizontal: Spacing.md,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    marginBottom: Spacing.lg,
-  },
-  statPill: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  statValue: {
-    fontSize: Typography.fontSize['2xl'],
-    color: Colors.ink,
-  },
-  statLabel: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.pencil,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  statsDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 32,
-    backgroundColor: Colors.border.medium,
-  },
+    // Social links
+    socialRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 12,
+      marginTop: Spacing.sm,
+    },
+    socialLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    socialLinkText: {
+      fontSize: Typography.fontSize.sm,
+      color: C.wax,
+      maxWidth: 120,
+    },
 
-  // Compose CTA
-  composeCta: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-    paddingVertical: Spacing.sm + 2,
-    borderRadius: 12,
-    backgroundColor: Colors.ink,
-    alignItems: 'center',
-  },
-  composeCtaText: {
-    color: Colors.surface,
-    fontSize: Typography.fontSize.base,
-    letterSpacing: 1,
-  },
+    // Stats
+    statsRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: Spacing.lg,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border.light,
+      marginHorizontal: Spacing.md,
+      borderRadius: 12,
+      backgroundColor: C.surface,
+      marginBottom: Spacing.lg,
+    },
+    statsDivider: {
+      width: StyleSheet.hairlineWidth,
+      height: 32,
+      backgroundColor: C.border.medium,
+    },
 
-  // Tabs
-  tabRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-    marginBottom: Spacing.xs,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: Spacing.sm + 2,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: Colors.ink,
-  },
-  tabLabel: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.pencil,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  tabLabelActive: {
-    color: Colors.ink,
-  },
+    // Compose CTA
+    composeCta: {
+      marginHorizontal: Spacing.md,
+      marginBottom: Spacing.lg,
+      paddingVertical: Spacing.sm + 2,
+      borderRadius: 12,
+      backgroundColor: C.ink,
+      alignItems: 'center',
+    },
+    composeCtaText: {
+      color: C.surface,
+      fontSize: Typography.fontSize.base,
+      letterSpacing: 1,
+    },
 
-  // Poem cards
-  poemCardWrapper: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
+    // Tabs
+    tabRow: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: C.border.light,
+      marginBottom: Spacing.xs,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: Spacing.sm + 2,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: {
+      borderBottomColor: C.wax,
+    },
+    tabLabel: {
+      fontSize: Typography.fontSize.sm,
+      color: C.pencil,
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+    },
+    tabLabelActive: {
+      color: C.ink,
+    },
 
-  // Empty / loading states
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing['2xl'],
-    paddingHorizontal: Spacing.lg,
-  },
-  emptyText: {
-    fontSize: Typography.fontSize.base,
-    color: Colors.pencil,
-    textAlign: 'center',
-    marginBottom: Spacing.md,
-  },
-  emptyBtn: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.ink,
-  },
-  emptyBtnText: {
-    color: Colors.ink,
-    fontSize: Typography.fontSize.sm,
-  },
+    // Poem cards
+    poemCardWrapper: {
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
+    },
 
-  // Edit modal
-  modalContainer: {
-    flex: 1,
-    backgroundColor: Colors.paper,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border.light,
-  },
-  modalTitle: {
-    fontSize: Typography.fontSize.base,
-    color: Colors.ink,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  modalCancel: {
-    fontSize: Typography.fontSize.base,
-    color: Colors.pencil,
-  },
-  modalSave: {
-    fontSize: Typography.fontSize.base,
-    color: Colors.wax,
-  },
-  modalBody: {
-    flex: 1,
-    padding: Spacing.md,
-  },
-  modalError: {
-    color: Colors.wax,
-    fontSize: Typography.fontSize.sm,
-    marginBottom: Spacing.md,
-  },
-  fieldLabel: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.pencil,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: Spacing.xs,
-    marginTop: Spacing.md,
-  },
-  fieldInput: {
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    borderRadius: 8,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    fontSize: Typography.fontSize.lg,
-    fontFamily: Typography.fontFamily.body,
-    color: Colors.ink,
-    backgroundColor: Colors.surface,
-  },
-  fieldInputMultiline: {
-    height: 120,
-    textAlignVertical: 'top',
-    paddingTop: Spacing.sm + 2,
-  },
-  charCount: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.pencil,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-});
+    // Empty / loading states
+    centered: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: Spacing['2xl'],
+      paddingHorizontal: Spacing.lg,
+    },
+    emptyText: {
+      fontSize: Typography.fontSize.base,
+      color: C.pencil,
+      textAlign: 'center',
+      marginBottom: Spacing.md,
+    },
+    emptyBtn: {
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.sm,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.ink,
+    },
+    emptyBtnText: {
+      color: C.ink,
+      fontSize: Typography.fontSize.sm,
+    },
+
+    // Edit modal
+    modalContainer: {
+      flex: 1,
+      backgroundColor: C.paper,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: C.border.light,
+    },
+    modalTitle: {
+      fontSize: Typography.fontSize.base,
+      color: C.ink,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    modalCancel: {
+      fontSize: Typography.fontSize.base,
+      color: C.pencil,
+    },
+    modalSave: {
+      fontSize: Typography.fontSize.base,
+      color: C.wax,
+    },
+    modalBody: {
+      flex: 1,
+      padding: Spacing.md,
+    },
+    modalError: {
+      color: C.wax,
+      fontSize: Typography.fontSize.sm,
+      marginBottom: Spacing.md,
+    },
+    fieldLabel: {
+      fontSize: Typography.fontSize.xs,
+      color: C.pencil,
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      marginBottom: Spacing.xs,
+      marginTop: Spacing.md,
+    },
+    fieldInput: {
+      borderWidth: 1,
+      borderColor: C.border.light,
+      borderRadius: 8,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+      fontSize: Typography.fontSize.base,
+      fontFamily: Typography.fontFamily.body,
+      color: C.ink,
+      backgroundColor: C.surface,
+    },
+    fieldInputMultiline: {
+      height: 100,
+      textAlignVertical: 'top',
+      paddingTop: Spacing.sm + 2,
+    },
+    charCount: {
+      fontSize: Typography.fontSize.xs,
+      color: C.pencil,
+      textAlign: 'right',
+      marginTop: 4,
+    },
+  });
+}

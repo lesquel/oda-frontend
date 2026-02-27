@@ -5,18 +5,22 @@ import {
   ActivityIndicator,
   StyleSheet,
   Share,
+  Platform,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams, router, Stack } from 'expo-router';
+import { useEffect, useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
-import { Colors, Spacing, Typography, Shadows } from '@/constants/colors';
+import { Spacing, Typography, Shadows } from '@/constants/colors';
 import { poemsApi } from '@/features/poems/services/poems-api';
 import type { PoemResponse, EmotionType } from '@/features/poems/types/poem';
 import { EmotionSelector } from '@/features/poems/components/emotion-selector';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuthStore } from '@/features/auth/store/auth-store';
+import { useThemedColors } from '@/hooks/use-themed-colors';
+
+type ThemeColors = ReturnType<typeof useThemedColors>;
 
 const EMOTION_EMOJI: Record<string, string> = {
   melancholic: '😔',
@@ -34,6 +38,8 @@ export default function PoemDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [emotionVisible, setEmotionVisible] = useState(false);
   const { isAuthenticated } = useAuthStore();
+  const C = useThemedColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
 
   const requireAuth = (cb: () => void) => {
     if (!isAuthenticated) { router.push('/login'); return; }
@@ -78,10 +84,14 @@ export default function PoemDetailScreen() {
 
   const handleShare = async () => {
     if (!poem) return;
-    await Share.share({
-      title: poem.title,
-      message: `${poem.title}\n\n${poem.content}\n\n\u2014 ${poem.author?.name ?? ''}`,
-    });
+    const message = `${poem.title}\n\n${poem.content}\n\n\u2014 ${poem.author?.name ?? ''}`;
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(message).catch(() => {});
+      }
+      return;
+    }
+    await Share.share({ title: poem.title, message }).catch(() => {});
   };
 
   const handleSelectEmotion = async (emotion: EmotionType) => {
@@ -105,7 +115,8 @@ export default function PoemDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={Colors.ink} />
+        <Stack.Screen options={{ title: 'Oda' }} />
+        <ActivityIndicator size="large" color={C.ink} />
       </View>
     );
   }
@@ -113,6 +124,7 @@ export default function PoemDetailScreen() {
   if (error || !poem) {
     return (
       <View style={styles.centered}>
+        <Stack.Screen options={{ title: 'Oda' }} />
         <Text style={styles.errorText}>{error || 'Poema no encontrado'}</Text>
         <Pressable onPress={() => router.back()} style={{ marginTop: Spacing.md }}>
           <Text style={styles.backLink}>← Volver</Text>
@@ -126,10 +138,13 @@ export default function PoemDetailScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Page title for web SEO */}
+      <Stack.Screen options={{ title: `${poem.title} — Oda` }} />
+
       {/* ── Header ── */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <Ionicons name="arrow-back" size={22} color={Colors.ink} />
+          <Ionicons name="arrow-back" size={22} color={C.ink} />
         </Pressable>
         <Text style={styles.appTitle}>ODA</Text>
         <View style={{ width: 38 }} />
@@ -138,13 +153,8 @@ export default function PoemDetailScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ── Poem card ── */}
         <View style={styles.poemCard}>
-          {/* Title */}
           <Text style={styles.poemTitle}>{poem.title}</Text>
-
-          {/* Decorative rule */}
           <View style={styles.rule} />
-
-          {/* Full poem content */}
           <Text style={styles.poemContent}>{poem.content}</Text>
         </View>
 
@@ -154,7 +164,9 @@ export default function PoemDetailScreen() {
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View>
-            <Text style={styles.authorName}>{poem.author?.name}</Text>
+            <Pressable onPress={() => poem.author?.username && router.push(`/user/${poem.author.username}` as any)}>
+              <Text style={styles.authorName}>{poem.author?.name}</Text>
+            </Pressable>
             <Text style={styles.authorHandle}>@{poem.author?.username} · {timeAgo}</Text>
           </View>
         </View>
@@ -162,11 +174,11 @@ export default function PoemDetailScreen() {
         {/* ── Stats ── */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Ionicons name={poem.is_liked ? 'heart' : 'heart-outline'} size={16} color={poem.is_liked ? Colors.wax : Colors.pencil} />
+            <Ionicons name={poem.is_liked ? 'heart' : 'heart-outline'} size={16} color={poem.is_liked ? C.wax : C.pencil} />
             <Text style={styles.statValue}>{poem.like_count}</Text>
           </View>
           <View style={styles.statItem}>
-            <Ionicons name="eye-outline" size={16} color={Colors.pencil} />
+            <Ionicons name="eye-outline" size={16} color={C.pencil} />
             <Text style={styles.statValue}>{poem.view_count}</Text>
           </View>
         </View>
@@ -193,7 +205,7 @@ export default function PoemDetailScreen() {
           <Ionicons
             name={poem.is_liked ? 'heart' : 'heart-outline'}
             size={24}
-            color={poem.is_liked ? Colors.wax : Colors.ink}
+            color={poem.is_liked ? C.wax : C.ink}
           />
           <Text style={styles.actionLabel}>Me gusta</Text>
         </Pressable>
@@ -209,13 +221,13 @@ export default function PoemDetailScreen() {
           <Ionicons
             name={poem.is_bookmarked ? 'bookmark' : 'bookmark-outline'}
             size={24}
-            color={poem.is_bookmarked ? Colors.wax : Colors.ink}
+            color={poem.is_bookmarked ? C.wax : C.ink}
           />
           <Text style={styles.actionLabel}>Guardar</Text>
         </Pressable>
 
         <Pressable onPress={handleShare} style={styles.action}>
-          <Ionicons name="share-outline" size={24} color={Colors.ink} />
+          <Ionicons name="share-outline" size={24} color={C.ink} />
           <Text style={styles.actionLabel}>Compartir</Text>
         </Pressable>
       </View>
@@ -232,171 +244,173 @@ export default function PoemDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.paper },
-  centered: { flex: 1, backgroundColor: Colors.paper, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
-  errorText: { fontFamily: Typography.fontFamily.ui, color: Colors.wax, textAlign: 'center' },
-  backLink: { fontFamily: Typography.fontFamily.uiBold, color: Colors.ink, fontSize: 14 },
+function makeStyles(C: ThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.paper },
+    centered: { flex: 1, backgroundColor: C.paper, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
+    errorText: { fontFamily: Typography.fontFamily.ui, color: C.wax, textAlign: 'center' },
+    backLink: { fontFamily: Typography.fontFamily.uiBold, color: C.ink, fontSize: 14 },
 
-  header: {
-    paddingTop: 52,
-    paddingBottom: 12,
-    paddingHorizontal: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.paper,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  appTitle: {
-    fontFamily: Typography.fontFamily.display,
-    fontSize: 22,
-    letterSpacing: 6,
-    color: Colors.ink,
-  },
+    header: {
+      paddingTop: 52,
+      paddingBottom: 12,
+      paddingHorizontal: Spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: C.paper,
+      borderBottomWidth: 1,
+      borderBottomColor: C.border.light,
+    },
+    backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+    appTitle: {
+      fontFamily: Typography.fontFamily.display,
+      fontSize: 22,
+      letterSpacing: 6,
+      color: C.ink,
+    },
 
-  scroll: { paddingBottom: Spacing['2xl'] },
+    scroll: { paddingBottom: Spacing['2xl'] },
 
-  poemCard: {
-    margin: Spacing.lg,
-    backgroundColor: Colors.surface,
-    borderRadius: 6,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    ...Shadows.lift,
-  },
-  poemTitle: {
-    fontFamily: Typography.fontFamily.display,
-    fontSize: 30,
-    lineHeight: 38,
-    color: Colors.ink,
-    textAlign: 'center',
-    marginBottom: Spacing.md,
-  },
-  rule: {
-    width: 40,
-    height: 1,
-    backgroundColor: Colors.pencil,
-    opacity: 0.3,
-    marginBottom: Spacing.xl,
-  },
-  poemContent: {
-    fontFamily: Typography.fontFamily.bodyItalic,
-    fontSize: 18,
-    lineHeight: 32,
-    color: Colors.ink,
-    textAlign: 'center',
-    opacity: 0.92,
-  },
+    poemCard: {
+      margin: Spacing.lg,
+      backgroundColor: C.surface,
+      borderRadius: 6,
+      padding: Spacing.xl,
+      alignItems: 'center',
+      ...Shadows.lift,
+    },
+    poemTitle: {
+      fontFamily: Typography.fontFamily.display,
+      fontSize: 30,
+      lineHeight: 38,
+      color: C.ink,
+      textAlign: 'center',
+      marginBottom: Spacing.md,
+    },
+    rule: {
+      width: 40,
+      height: 1,
+      backgroundColor: C.pencil,
+      opacity: 0.3,
+      marginBottom: Spacing.xl,
+    },
+    poemContent: {
+      fontFamily: Typography.fontFamily.bodyItalic,
+      fontSize: 18,
+      lineHeight: 32,
+      color: C.ink,
+      textAlign: 'center',
+      opacity: 0.92,
+    },
 
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: `${Colors.pencil}30`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontFamily: Typography.fontFamily.display,
-    fontSize: 18,
-    color: Colors.ink,
-  },
-  authorName: {
-    fontFamily: Typography.fontFamily.uiBold,
-    fontSize: 13,
-    letterSpacing: 0.5,
-    color: Colors.ink,
-  },
-  authorHandle: {
-    fontFamily: Typography.fontFamily.ui,
-    fontSize: 11,
-    color: Colors.pencil,
-    marginTop: 2,
-  },
+    authorRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: Spacing.lg,
+      paddingBottom: Spacing.md,
+    },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: `${C.pencil}30`,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: {
+      fontFamily: Typography.fontFamily.display,
+      fontSize: 18,
+      color: C.ink,
+    },
+    authorName: {
+      fontFamily: Typography.fontFamily.uiBold,
+      fontSize: 13,
+      letterSpacing: 0.5,
+      color: C.ink,
+    },
+    authorHandle: {
+      fontFamily: Typography.fontFamily.ui,
+      fontSize: 11,
+      color: C.pencil,
+      marginTop: 2,
+    },
 
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: Colors.border.light,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statValue: {
-    fontFamily: Typography.fontFamily.ui,
-    fontSize: 13,
-    color: Colors.pencil,
-  },
+    statsRow: {
+      flexDirection: 'row',
+      gap: Spacing.lg,
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.sm,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: C.border.light,
+      marginHorizontal: Spacing.lg,
+      marginBottom: Spacing.md,
+    },
+    statItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    statValue: {
+      fontFamily: Typography.fontFamily.ui,
+      fontSize: 13,
+      color: C.pencil,
+    },
 
-  emotionsSection: {
-    paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.sm,
-  },
-  emotionsSectionLabel: {
-    fontFamily: Typography.fontFamily.uiBold,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: Colors.pencil,
-    marginBottom: Spacing.sm,
-  },
-  emotionTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  emotionTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  emotionTagEmoji: { fontSize: 14 },
-  emotionTagCount: {
-    fontFamily: Typography.fontFamily.ui,
-    fontSize: 11,
-    color: Colors.pencil,
-  },
+    emotionsSection: {
+      paddingHorizontal: Spacing.lg,
+      marginTop: Spacing.sm,
+    },
+    emotionsSectionLabel: {
+      fontFamily: Typography.fontFamily.uiBold,
+      fontSize: 10,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+      color: C.pencil,
+      marginBottom: Spacing.sm,
+    },
+    emotionTags: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    emotionTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: C.surface,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.border.light,
+    },
+    emotionTagEmoji: { fontSize: 14 },
+    emotionTagCount: {
+      fontFamily: Typography.fontFamily.ui,
+      fontSize: 11,
+      color: C.pencil,
+    },
 
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
-    backgroundColor: Colors.paper,
-    paddingVertical: Spacing.md,
-    paddingBottom: Spacing.lg,
-  },
-  action: { alignItems: 'center', gap: 4 },
-  actionLabel: {
-    fontFamily: Typography.fontFamily.ui,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: Colors.pencil,
-  },
-});
+    actionBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: C.border.light,
+      backgroundColor: C.paper,
+      paddingVertical: Spacing.md,
+      paddingBottom: Spacing.lg,
+    },
+    action: { alignItems: 'center', gap: 4 },
+    actionLabel: {
+      fontFamily: Typography.fontFamily.ui,
+      fontSize: 10,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+      color: C.pencil,
+    },
+  });
+}

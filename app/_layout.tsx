@@ -75,6 +75,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
+        <Stack.Screen name="poem/[id]" />
+        <Stack.Screen name="user/[username]" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />

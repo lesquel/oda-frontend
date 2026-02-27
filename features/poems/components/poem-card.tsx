@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Pressable, StyleSheet, Share } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Pressable, StyleSheet, Share, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
@@ -7,7 +7,8 @@ import type { PoemResponse } from '../types/poem';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuthStore } from '@/features/auth/store/auth-store';
-import { Colors, Typography, Shadows, Spacing } from '@/constants/colors';
+import { Typography, Shadows, Spacing } from '@/constants/colors';
+import { useThemedColors } from '@/hooks/use-themed-colors';
 
 interface PoemCardProps {
   poem: PoemResponse;
@@ -17,6 +18,8 @@ interface PoemCardProps {
 
 export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
   const { isAuthenticated } = useAuthStore();
+  const C = useThemedColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
 
   const navigateToDetail = () => router.push(`/poem/${poem.id}`);
 
@@ -34,10 +37,18 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
 
   const handleShare = (e: any) => {
     e.stopPropagation();
+    if (Platform.OS === 'web') {
+      // Fallback for web: copy to clipboard or use navigator.share if available
+      const text = `${poem.title}\n\n${poem.content}\n\n— ${poem.author?.name ?? ''}`;
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+      return;
+    }
     Share.share({
       title: poem.title,
       message: `${poem.title}\n\n${poem.content}\n\n— ${poem.author?.name ?? ''}`,
-    });
+    }).catch(() => {});
   };
 
   // Show up to 3 lines of content
@@ -84,13 +95,13 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
                   <Ionicons
                     name={poem.is_bookmarked ? 'bookmark' : 'bookmark-outline'}
                     size={14}
-                    color={poem.is_bookmarked ? Colors.wax : Colors.pencil}
+                    color={poem.is_bookmarked ? C.wax : C.pencil}
                   />
                 </Pressable>
               )}
               {/* Share */}
               <Pressable onPress={handleShare} style={styles.actionBtn} hitSlop={8}>
-                <Ionicons name="share-outline" size={14} color={Colors.pencil} />
+                <Ionicons name="share-outline" size={14} color={C.pencil} />
               </Pressable>
             </View>
           </View>
@@ -100,92 +111,96 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 6,
-    overflow: 'hidden',
-    ...Shadows.lift,
-  },
-  inner: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  titleBlock: {
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-    width: '100%',
-  },
-  title: {
-    fontFamily: Typography.fontFamily.display,
-    fontSize: 22,
-    lineHeight: 28,
-    color: Colors.ink,
-    textAlign: 'center',
-    marginBottom: Spacing.xs + 2,
-  },
-  divider: {
-    width: 32,
-    height: 1,
-    backgroundColor: Colors.pencil,
-    opacity: 0.3,
-    marginTop: 4,
-  },
-  verseBlock: {
-    paddingHorizontal: Spacing.xs,
-    marginBottom: Spacing.md,
-  },
-  verse: {
-    fontFamily: Typography.fontFamily.bodyItalic,
-    fontSize: 14,
-    lineHeight: 14 * 1.85,
-    color: Colors.ink,
-    textAlign: 'center',
-    opacity: 0.88,
-  },
-  footer: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
-    paddingTop: Spacing.sm,
-  },
-  timeLabel: {
-    fontFamily: Typography.fontFamily.ui,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: Colors.pencil,
-  },
-  footerRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  authorName: {
-    fontFamily: Typography.fontFamily.uiBold,
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: Colors.ink,
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  likeIcon: {
-    fontSize: 12,
-  },
-  likeCount: {
-    fontFamily: Typography.fontFamily.ui,
-    fontSize: 10,
-    color: Colors.pencil,
-  },
-});
+type ThemeColors = ReturnType<typeof useThemedColors>;
+
+function makeStyles(C: ThemeColors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: C.surface,
+      borderRadius: 6,
+      overflow: 'hidden',
+      ...Shadows.lift,
+    },
+    inner: {
+      padding: Spacing.lg,
+      paddingBottom: Spacing.md,
+    },
+    titleBlock: {
+      alignItems: 'center',
+      marginBottom: Spacing.sm,
+      width: '100%',
+    },
+    title: {
+      fontFamily: Typography.fontFamily.display,
+      fontSize: 22,
+      lineHeight: 28,
+      color: C.ink,
+      textAlign: 'center',
+      marginBottom: Spacing.xs + 2,
+    },
+    divider: {
+      width: 32,
+      height: 1,
+      backgroundColor: C.pencil,
+      opacity: 0.3,
+      marginTop: 4,
+    },
+    verseBlock: {
+      paddingHorizontal: Spacing.xs,
+      marginBottom: Spacing.md,
+    },
+    verse: {
+      fontFamily: Typography.fontFamily.bodyItalic,
+      fontSize: 14,
+      lineHeight: 14 * 1.85,
+      color: C.ink,
+      textAlign: 'center',
+      opacity: 0.88,
+    },
+    footer: {
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      borderTopWidth: 1,
+      borderTopColor: C.border.light,
+      paddingTop: Spacing.sm,
+    },
+    timeLabel: {
+      fontFamily: Typography.fontFamily.ui,
+      fontSize: 10,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+      color: C.pencil,
+    },
+    footerRight: {
+      alignItems: 'flex-end',
+      gap: 4,
+    },
+    authorName: {
+      fontFamily: Typography.fontFamily.uiBold,
+      fontSize: 11,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      color: C.ink,
+    },
+    actions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+    },
+    likeIcon: {
+      fontSize: 12,
+    },
+    likeCount: {
+      fontFamily: Typography.fontFamily.ui,
+      fontSize: 10,
+      color: C.pencil,
+    },
+  });
+}

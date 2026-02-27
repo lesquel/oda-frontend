@@ -1,5 +1,6 @@
 import { Text as RNText, TextProps as RNTextProps } from 'react-native';
-import { Colors, Typography } from '@/constants/colors';
+import { Typography } from '@/constants/colors';
+import { useThemedColors } from '@/hooks/use-themed-colors';
 
 interface TextProps extends RNTextProps {
   variant?: 'display' | 'body' | 'bodyItalic' | 'ui' | 'uiBold';
@@ -7,7 +8,7 @@ interface TextProps extends RNTextProps {
 }
 
 /**
- * Text component with Oda typography presets
+ * Text component with Oda typography presets — theme-aware.
  */
 export function Text({ 
   variant = 'body', 
@@ -15,24 +16,19 @@ export function Text({
   style, 
   ...props 
 }: TextProps) {
+  const C = useThemedColors();
   const fontFamily = Typography.fontFamily[variant];
   
   const textColor = {
-    primary: Colors.text.primary,
-    secondary: Colors.text.secondary,
-    accent: Colors.wax,
-    inverse: Colors.text.inverse,
+    primary: C.text.primary,
+    secondary: C.text.secondary,
+    accent: C.wax,
+    inverse: C.text.inverse,
   }[color];
 
   return (
     <RNText
-      style={[
-        {
-          fontFamily,
-          color: textColor,
-        },
-        style,
-      ]}
+      style={[{ fontFamily, color: textColor }, style]}
       {...props}
     />
   );

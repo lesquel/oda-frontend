@@ -32,6 +32,9 @@ export interface User {
   name: string;
   bio?: string;
   avatar?: string;
+  website?: string;
+  instagram?: string;
+  twitter?: string;
   created_at: string;
   updated_at: string;
 }
