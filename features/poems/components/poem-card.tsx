@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet, Share } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
 import type { PoemResponse } from '../types/poem';
 import { formatDistanceToNow } from 'date-fns';
@@ -11,9 +12,10 @@ import { Colors, Typography, Shadows, Spacing } from '@/constants/colors';
 interface PoemCardProps {
   poem: PoemResponse;
   onLike?: (poemId: string) => void;
+  onBookmark?: (poemId: string) => void;
 }
 
-export function PoemCard({ poem, onLike }: PoemCardProps) {
+export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
   const { isAuthenticated } = useAuthStore();
 
   const navigateToDetail = () => router.push(`/poem/${poem.id}`);
@@ -24,10 +26,23 @@ export function PoemCard({ poem, onLike }: PoemCardProps) {
     onLike?.(poem.id);
   };
 
-  // Show up to 4 lines of content (≈ 120 chars)
-  const preview = poem.content.length > 120
-    ? poem.content.substring(0, 120).split('\n').slice(0, 4).join('\n') + '…'
-    : poem.content;
+  const handleBookmark = (e: any) => {
+    e.stopPropagation();
+    if (!isAuthenticated) { router.push('/login'); return; }
+    onBookmark?.(poem.id);
+  };
+
+  const handleShare = (e: any) => {
+    e.stopPropagation();
+    Share.share({
+      title: poem.title,
+      message: `${poem.title}\n\n${poem.content}\n\n— ${poem.author?.name ?? ''}`,
+    });
+  };
+
+  // Show up to 3 lines of content
+  const preview = poem.content.split('\n').slice(0, 3).join('\n')
+    + (poem.content.split('\n').length > 3 ? '\n…' : '');
 
   const timeAgo = formatDistanceToNow(new Date(poem.created_at), {
     addSuffix: true,
@@ -55,13 +70,29 @@ export function PoemCard({ poem, onLike }: PoemCardProps) {
           <Text style={styles.timeLabel}>{timeAgo}</Text>
           <View style={styles.footerRight}>
             <Text style={styles.authorName}>{poem.author?.name}</Text>
-            {/* Like – only shown when authenticated */}
-            {isAuthenticated && (
-              <Pressable onPress={handleLike} style={styles.likeBtn} hitSlop={8}>
-                <Text style={styles.likeIcon}>{poem.is_liked ? '❤️' : '🤍'}</Text>
-                <Text style={styles.likeCount}>{poem.like_count}</Text>
+            <View style={styles.actions}>
+              {/* Like */}
+              {isAuthenticated && (
+                <Pressable onPress={handleLike} style={styles.actionBtn} hitSlop={8}>
+                  <Text style={styles.likeIcon}>{poem.is_liked ? '❤️' : '🤍'}</Text>
+                  <Text style={styles.likeCount}>{poem.like_count}</Text>
+                </Pressable>
+              )}
+              {/* Bookmark */}
+              {isAuthenticated && (
+                <Pressable onPress={handleBookmark} style={styles.actionBtn} hitSlop={8}>
+                  <Ionicons
+                    name={poem.is_bookmarked ? 'bookmark' : 'bookmark-outline'}
+                    size={14}
+                    color={poem.is_bookmarked ? Colors.wax : Colors.pencil}
+                  />
+                </Pressable>
+              )}
+              {/* Share */}
+              <Pressable onPress={handleShare} style={styles.actionBtn} hitSlop={8}>
+                <Ionicons name="share-outline" size={14} color={Colors.pencil} />
               </Pressable>
-            )}
+            </View>
           </View>
         </View>
       </View>
@@ -71,30 +102,27 @@ export function PoemCard({ poem, onLike }: PoemCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    aspectRatio: 3 / 4,
     backgroundColor: Colors.surface,
-    borderRadius: 4,
+    borderRadius: 6,
     overflow: 'hidden',
     ...Shadows.lift,
   },
   inner: {
-    flex: 1,
-    padding: Spacing.xl,
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    padding: Spacing.lg,
+    paddingBottom: Spacing.md,
   },
   titleBlock: {
     alignItems: 'center',
-    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
     width: '100%',
   },
   title: {
     fontFamily: Typography.fontFamily.display,
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 22,
+    lineHeight: 28,
     color: Colors.ink,
     textAlign: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs + 2,
   },
   divider: {
     width: 32,
@@ -104,17 +132,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   verseBlock: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   verse: {
     fontFamily: Typography.fontFamily.bodyItalic,
-    fontSize: 17,
-    lineHeight: 17 * 1.8,
+    fontSize: 14,
+    lineHeight: 14 * 1.85,
     color: Colors.ink,
     textAlign: 'center',
-    opacity: 0.9,
+    opacity: 0.88,
   },
   footer: {
     width: '100%',
@@ -143,10 +170,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: Colors.ink,
   },
-  likeBtn: {
+  actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   likeIcon: {
     fontSize: 12,

@@ -16,7 +16,7 @@ import { usePoemFeed } from '@/features/poems/hooks/use-poem-feed';
 import { useAuthStore } from '@/features/auth/store/auth-store';
 
 export default function FeedScreen() {
-  const { poems, isLoading, isRefreshing, error, loadFeed, loadMore, refresh, toggleLike } =
+    const { poems, isLoading, isRefreshing, error, loadFeed, loadMore, refresh, toggleLike, toggleBookmark } =
     usePoemFeed();
   const { isAuthenticated } = useAuthStore();
 
@@ -102,7 +102,7 @@ export default function FeedScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.md }}>
-            <PoemCard poem={item} onLike={toggleLike} />
+            <PoemCard poem={item} onLike={toggleLike} onBookmark={toggleBookmark} />
           </View>
         )}
         ListHeaderComponent={renderHeader}

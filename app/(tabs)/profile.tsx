@@ -14,20 +14,29 @@ import {
 } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
 import { PoemCard } from '@/features/poems/components/poem-card';
 import { useAuthStore } from '@/features/auth/store/auth-store';
 import { usersApi, UserStats } from '@/features/users/services/users-api';
-import type { Poem } from '@/features/poems/types/poem';
+import { poemsApi } from '@/features/poems/services/poems-api';
+import type { Poem, PoemResponse } from '@/features/poems/types/poem';
 import { Colors, Typography, Spacing } from '@/constants/colors';
+import { useThemeStore } from '@/store/theme-store';
 
-type ActiveTab = 'published' | 'draft';
+type ActiveTab = 'published' | 'draft' | 'saved';
 
 export default function ProfileScreen() {
-  const { user, isLoading: authLoading, updateProfile } = useAuthStore();
+  const { user, isLoading: authLoading, updateProfile, logout } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
 
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [poems, setPoems] = useState<Poem[]>([]);
+  const [poems, setPoems] = useState<PoemResponse[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>('published');
   const [isLoadingPoems, setIsLoadingPoems] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -60,8 +69,13 @@ export default function ProfileScreen() {
       if (!user) return;
       try {
         setIsLoadingPoems(true);
-        const data = await usersApi.getUserPoems(user.id, tab);
-        setPoems(data);
+        if (tab === 'saved') {
+          const data = await poemsApi.getUserBookmarks();
+          setPoems(data);
+        } else {
+          const data = await usersApi.getUserPoems(user.id, tab as 'published' | 'draft');
+          setPoems(data.map(p => ({ ...p, is_liked: false, is_bookmarked: false })));
+        }
       } catch {
         setPoems([]);
       } finally {
@@ -133,11 +147,23 @@ export default function ProfileScreen() {
         <Text variant="display" style={styles.appTitle}>
           ODA
         </Text>
-        <Pressable style={styles.editBtn} onPress={openEdit}>
-          <Text variant="ui" style={styles.editBtnText}>
-            Editar
-          </Text>
-        </Pressable>
+        <View style={styles.topBarActions}>
+          <Pressable onPress={toggleTheme} style={styles.iconBtn} hitSlop={8}>
+            <Ionicons
+              name={theme === 'dark' ? 'sunny-outline' : 'moon-outline'}
+              size={20}
+              color={Colors.ink}
+            />
+          </Pressable>
+          <Pressable style={styles.editBtn} onPress={openEdit}>
+            <Text variant="ui" style={styles.editBtnText}>
+              Editar
+            </Text>
+          </Pressable>
+          <Pressable onPress={handleLogout} style={styles.iconBtn} hitSlop={8}>
+            <Ionicons name="log-out-outline" size={20} color={Colors.wax} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Avatar + identity */}
@@ -222,6 +248,18 @@ export default function ProfileScreen() {
             Borradores
           </Text>
         </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === 'saved' && styles.tabActive]}
+          onPress={() => handleTabChange('saved')}>
+          <Text
+            variant="ui"
+            style={[
+              styles.tabLabel,
+              activeTab === 'saved' && styles.tabLabelActive,
+            ]}>
+            Guardados
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -239,7 +277,9 @@ export default function ProfileScreen() {
         <Text variant="body" style={styles.emptyText}>
           {activeTab === 'published'
             ? 'Aún no has publicado ningún poema'
-            : 'No tienes borradores guardados'}
+            : activeTab === 'draft'
+            ? 'No tienes borradores guardados'
+            : 'No tienes poemas guardados aún'}
         </Text>
         <Pressable
           style={styles.emptyBtn}
@@ -287,13 +327,13 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList<Poem>
+      <FlatList<PoemResponse>
         data={poems}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.poemCardWrapper}>
             <PoemCard
-              poem={{ ...item, is_liked: false }}
+              poem={item}
             />
           </View>
         )}
@@ -435,6 +475,17 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border.light,
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appTitle: {
     fontSize: Typography.fontSize['3xl'],

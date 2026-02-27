@@ -1,10 +1,16 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import {
+  View,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  Share,
+} from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useEffect, useState, useRef } from 'react';
-import BottomSheet from '@gorhom/bottom-sheet';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
-import { Colors, Spacing } from '@/constants/colors';
+import { Colors, Spacing, Typography, Shadows } from '@/constants/colors';
 import { poemsApi } from '@/features/poems/services/poems-api';
 import type { PoemResponse, EmotionType } from '@/features/poems/types/poem';
 import { EmotionSelector } from '@/features/poems/components/emotion-selector';
@@ -12,37 +18,39 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuthStore } from '@/features/auth/store/auth-store';
 
+const EMOTION_EMOJI: Record<string, string> = {
+  melancholic: '😔',
+  hopeful:     '🌟',
+  serene:      '☮️',
+  passionate:  '🔥',
+  nostalgic:   '🍂',
+  inspiring:   '✨',
+};
+
 export default function PoemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [poem, setPoem] = useState<PoemResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const emotionSheetRef = useRef<BottomSheet>(null);
+  const [emotionVisible, setEmotionVisible] = useState(false);
   const { isAuthenticated } = useAuthStore();
 
-  // Redirect unauthenticated users to login for write actions
   const requireAuth = (cb: () => void) => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
+    if (!isAuthenticated) { router.push('/login'); return; }
     cb();
   };
 
-  useEffect(() => {
-    loadPoem();
-  }, [id]);
+  useEffect(() => { loadPoem(); }, [id]);
 
   const loadPoem = async () => {
     if (!id) return;
-
     try {
       setIsLoading(true);
       setError(null);
       const data = await poemsApi.getPoemById(id);
       setPoem(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load poem');
+      setError(err.message || 'No se pudo cargar el poema');
     } finally {
       setIsLoading(false);
     }
@@ -50,235 +58,345 @@ export default function PoemDetailScreen() {
 
   const handleLike = () => requireAuth(async () => {
     if (!poem) return;
-
     try {
       const isLiked = await poemsApi.toggleLike(poem.id);
       setPoem({
         ...poem,
         is_liked: isLiked,
-        like_count: isLiked 
-          ? poem.like_count + 1 
-          : Math.max(0, poem.like_count - 1),
+        like_count: isLiked ? poem.like_count + 1 : Math.max(0, poem.like_count - 1),
       });
-    } catch (err) {
-      console.error('Failed to toggle like:', err);
-    }
+    } catch {}
   });
 
-  const handleOpenEmotionSelector = () => requireAuth(() => {
-    emotionSheetRef.current?.expand();
+  const handleBookmark = () => requireAuth(async () => {
+    if (!poem) return;
+    try {
+      const isBookmarked = await poemsApi.toggleBookmark(poem.id);
+      setPoem({ ...poem, is_bookmarked: isBookmarked });
+    } catch {}
   });
+
+  const handleShare = async () => {
+    if (!poem) return;
+    await Share.share({
+      title: poem.title,
+      message: `${poem.title}\n\n${poem.content}\n\n\u2014 ${poem.author?.name ?? ''}`,
+    });
+  };
 
   const handleSelectEmotion = async (emotion: EmotionType) => {
     if (!poem) return;
-
     try {
       await poemsApi.tagEmotion(poem.id, emotion);
-      
-      // Reload poem to get updated emotion counts
-      const updatedPoem = await poemsApi.getPoemById(poem.id);
-      setPoem(updatedPoem);
-    } catch (err) {
-      console.error('Failed to tag emotion:', err);
-    }
+      const updated = await poemsApi.getPoemById(poem.id);
+      setPoem(updated);
+    } catch {}
   };
 
   const handleRemoveEmotion = async () => {
     if (!poem) return;
-
     try {
       await poemsApi.removeEmotionTag(poem.id);
-      
-      // Reload poem
-      const updatedPoem = await poemsApi.getPoemById(poem.id);
-      setPoem(updatedPoem);
-    } catch (err) {
-      console.error('Failed to remove emotion:', err);
-    }
-  };
-
-  const handleBack = () => {
-    router.back();
+      const updated = await poemsApi.getPoemById(poem.id);
+      setPoem(updated);
+    } catch {}
   };
 
   if (isLoading) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={{ flex: 1, backgroundColor: Colors.paper, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={Colors.ink} />
-        </View>
-      </GestureHandlerRootView>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.ink} />
+      </View>
     );
   }
 
   if (error || !poem) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={{ flex: 1, backgroundColor: Colors.paper, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl }}>
-          <Text variant="ui" className="text-center text-wax mb-4">
-            {error || 'Poem not found'}
-          </Text>
-          <Pressable onPress={handleBack}>
-            <Text variant="uiBold" className="text-ink">
-              Go Back
-            </Text>
-          </Pressable>
-        </View>
-      </GestureHandlerRootView>
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{error || 'Poema no encontrado'}</Text>
+        <Pressable onPress={() => router.back()} style={{ marginTop: Spacing.md }}>
+          <Text style={styles.backLink}>← Volver</Text>
+        </Pressable>
+      </View>
     );
   }
 
-  const timeAgo = formatDistanceToNow(new Date(poem.created_at), {
-    addSuffix: true,
-    locale: es
-  });
+  const timeAgo = formatDistanceToNow(new Date(poem.created_at), { addSuffix: true, locale: es });
+  const initials = poem.author?.name?.charAt(0)?.toUpperCase() ?? '?';
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={{ flex: 1, backgroundColor: Colors.paper }}>
-        {/* Header */}
-        <View className="pt-12 pb-4 px-4 flex-row items-center justify-between border-b border-pencil/10">
-          <Pressable onPress={handleBack} className="p-2">
-            <Text variant="ui" className="text-xl">←</Text>
-          </Pressable>
-          <Text variant="display" className="text-2xl tracking-widest">
-            ODA
-          </Text>
-          <View className="w-10" />
-        </View>
-
-        <ScrollView contentContainerStyle={{ paddingBottom: Spacing.xl }}>
-          {/* Poem Content */}
-          <View className="px-6 py-8">
-            {/* Title */}
-            <Text variant="display" className="text-3xl mb-6 text-ink text-center">
-              {poem.title}
-            </Text>
-
-            {/* Content */}
-            <Text variant="bodyItalic" className="text-lg text-ink leading-loose mb-8">
-              {poem.content}
-            </Text>
-
-            {/* Author Info */}
-            <View className="flex-row items-center space-x-3 mb-6">
-              <View className="w-12 h-12 rounded-full bg-pencil/20 items-center justify-center">
-                <Text variant="ui" className="text-base text-ink">
-                  {poem.author?.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <View className="flex-1">
-                <Text variant="uiBold" className="text-sm text-ink">
-                  {poem.author?.name}
-                </Text>
-                <Text variant="ui" className="text-sm text-pencil">
-                  @{poem.author?.username}
-                </Text>
-              </View>
-            </View>
-
-            {/* Stats */}
-            <View className="flex-row items-center space-x-6 py-4 border-t border-b border-pencil/10">
-              <View className="flex-row items-center space-x-2">
-                <Text variant="ui" className="text-sm">
-                  {poem.is_liked ? '❤️' : '🤍'}
-                </Text>
-                <Text variant="ui" className="text-sm text-pencil">
-                  {poem.like_count} likes
-                </Text>
-              </View>
-              <View className="flex-row items-center space-x-2">
-                <Text variant="ui" className="text-sm">👁️</Text>
-                <Text variant="ui" className="text-sm text-pencil">
-                  {poem.view_count} views
-                </Text>
-              </View>
-              <Text variant="ui" className="text-sm text-pencil">
-                {timeAgo}
-              </Text>
-            </View>
-
-            {/* Emotion Distribution */}
-            {poem.emotion_counts && Object.keys(poem.emotion_counts).length > 0 && (
-              <View className="mt-6">
-                <Text variant="uiBold" className="text-sm text-ink mb-3">
-                  How readers feel:
-                </Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {Object.entries(poem.emotion_counts).map(([emotion, count]) => (
-                    <View
-                      key={emotion}
-                      className="flex-row items-center space-x-1 px-3 py-2 bg-surface rounded-full border border-pencil/10"
-                    >
-                      <Text variant="ui" className="text-sm">
-                        {getEmotionEmoji(emotion)}
-                      </Text>
-                      <Text variant="ui" className="text-sm text-pencil">
-                        {count}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-
-        {/* Action Bar */}
-        <View className="border-t border-pencil/10 bg-paper px-6 py-4 flex-row items-center justify-around">
-          <Pressable onPress={handleLike} className="items-center">
-            <Text variant="ui" className="text-2xl mb-1">
-              {poem.is_liked ? '❤️' : '🤍'}
-            </Text>
-            <Text variant="ui" className="text-xs text-pencil uppercase">
-              Like
-            </Text>
-          </Pressable>
-
-          <Pressable onPress={handleOpenEmotionSelector} className="items-center">
-            <Text variant="ui" className="text-2xl mb-1">
-              {poem.user_emotion ? getEmotionEmoji(poem.user_emotion) : '💭'}
-            </Text>
-            <Text variant="ui" className="text-xs text-pencil uppercase">
-              Feel
-            </Text>
-          </Pressable>
-
-          <Pressable className="items-center opacity-50">
-            <Text variant="ui" className="text-2xl mb-1">📤</Text>
-            <Text variant="ui" className="text-xs text-pencil uppercase">
-              Share
-            </Text>
-          </Pressable>
-
-          <Pressable className="items-center opacity-50">
-            <Text variant="ui" className="text-2xl mb-1">🔖</Text>
-            <Text variant="ui" className="text-xs text-pencil uppercase">
-              Save
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Emotion Selector Bottom Sheet */}
-        <EmotionSelector
-          ref={emotionSheetRef}
-          selectedEmotion={poem.user_emotion}
-          onSelect={handleSelectEmotion}
-          onRemove={poem.user_emotion ? handleRemoveEmotion : undefined}
-        />
+    <View style={styles.root}>
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <Ionicons name="arrow-back" size={22} color={Colors.ink} />
+        </Pressable>
+        <Text style={styles.appTitle}>ODA</Text>
+        <View style={{ width: 38 }} />
       </View>
-    </GestureHandlerRootView>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ── Poem card ── */}
+        <View style={styles.poemCard}>
+          {/* Title */}
+          <Text style={styles.poemTitle}>{poem.title}</Text>
+
+          {/* Decorative rule */}
+          <View style={styles.rule} />
+
+          {/* Full poem content */}
+          <Text style={styles.poemContent}>{poem.content}</Text>
+        </View>
+
+        {/* ── Author row ── */}
+        <View style={styles.authorRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+          <View>
+            <Text style={styles.authorName}>{poem.author?.name}</Text>
+            <Text style={styles.authorHandle}>@{poem.author?.username} · {timeAgo}</Text>
+          </View>
+        </View>
+
+        {/* ── Stats ── */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Ionicons name={poem.is_liked ? 'heart' : 'heart-outline'} size={16} color={poem.is_liked ? Colors.wax : Colors.pencil} />
+            <Text style={styles.statValue}>{poem.like_count}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="eye-outline" size={16} color={Colors.pencil} />
+            <Text style={styles.statValue}>{poem.view_count}</Text>
+          </View>
+        </View>
+
+        {/* ── Emotion tags ── */}
+        {poem.emotion_counts && Object.keys(poem.emotion_counts).length > 0 && (
+          <View style={styles.emotionsSection}>
+            <Text style={styles.emotionsSectionLabel}>Reacciones</Text>
+            <View style={styles.emotionTags}>
+              {Object.entries(poem.emotion_counts).map(([emotion, count]) => (
+                <View key={emotion} style={styles.emotionTag}>
+                  <Text style={styles.emotionTagEmoji}>{EMOTION_EMOJI[emotion] ?? '💭'}</Text>
+                  <Text style={styles.emotionTagCount}>{count}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* ── Action bar ── */}
+      <View style={styles.actionBar}>
+        <Pressable onPress={handleLike} style={styles.action}>
+          <Ionicons
+            name={poem.is_liked ? 'heart' : 'heart-outline'}
+            size={24}
+            color={poem.is_liked ? Colors.wax : Colors.ink}
+          />
+          <Text style={styles.actionLabel}>Me gusta</Text>
+        </Pressable>
+
+        <Pressable onPress={() => requireAuth(() => setEmotionVisible(true))} style={styles.action}>
+          <Text style={{ fontSize: 22 }}>
+            {poem.user_emotion ? EMOTION_EMOJI[poem.user_emotion] : '💭'}
+          </Text>
+          <Text style={styles.actionLabel}>Sentir</Text>
+        </Pressable>
+
+        <Pressable onPress={handleBookmark} style={styles.action}>
+          <Ionicons
+            name={poem.is_bookmarked ? 'bookmark' : 'bookmark-outline'}
+            size={24}
+            color={poem.is_bookmarked ? Colors.wax : Colors.ink}
+          />
+          <Text style={styles.actionLabel}>Guardar</Text>
+        </Pressable>
+
+        <Pressable onPress={handleShare} style={styles.action}>
+          <Ionicons name="share-outline" size={24} color={Colors.ink} />
+          <Text style={styles.actionLabel}>Compartir</Text>
+        </Pressable>
+      </View>
+
+      {/* ── Emotion Selector ── */}
+      <EmotionSelector
+        visible={emotionVisible}
+        onClose={() => setEmotionVisible(false)}
+        selectedEmotion={poem.user_emotion}
+        onSelect={handleSelectEmotion}
+        onRemove={poem.user_emotion ? handleRemoveEmotion : undefined}
+      />
+    </View>
   );
 }
 
-function getEmotionEmoji(emotion: string): string {
-  const emojiMap: Record<string, string> = {
-    melancholic: '😔',
-    hopeful: '🌟',
-    serene: '☮️',
-    passionate: '🔥',
-    nostalgic: '🍂',
-    inspiring: '✨',
-  };
-  return emojiMap[emotion] || '💭';
-}
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.paper },
+  centered: { flex: 1, backgroundColor: Colors.paper, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
+  errorText: { fontFamily: Typography.fontFamily.ui, color: Colors.wax, textAlign: 'center' },
+  backLink: { fontFamily: Typography.fontFamily.uiBold, color: Colors.ink, fontSize: 14 },
+
+  header: {
+    paddingTop: 52,
+    paddingBottom: 12,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.paper,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  appTitle: {
+    fontFamily: Typography.fontFamily.display,
+    fontSize: 22,
+    letterSpacing: 6,
+    color: Colors.ink,
+  },
+
+  scroll: { paddingBottom: Spacing['2xl'] },
+
+  poemCard: {
+    margin: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderRadius: 6,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    ...Shadows.lift,
+  },
+  poemTitle: {
+    fontFamily: Typography.fontFamily.display,
+    fontSize: 30,
+    lineHeight: 38,
+    color: Colors.ink,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  rule: {
+    width: 40,
+    height: 1,
+    backgroundColor: Colors.pencil,
+    opacity: 0.3,
+    marginBottom: Spacing.xl,
+  },
+  poemContent: {
+    fontFamily: Typography.fontFamily.bodyItalic,
+    fontSize: 18,
+    lineHeight: 32,
+    color: Colors.ink,
+    textAlign: 'center',
+    opacity: 0.92,
+  },
+
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${Colors.pencil}30`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: Typography.fontFamily.display,
+    fontSize: 18,
+    color: Colors.ink,
+  },
+  authorName: {
+    fontFamily: Typography.fontFamily.uiBold,
+    fontSize: 13,
+    letterSpacing: 0.5,
+    color: Colors.ink,
+  },
+  authorHandle: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 11,
+    color: Colors.pencil,
+    marginTop: 2,
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    gap: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.border.light,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statValue: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 13,
+    color: Colors.pencil,
+  },
+
+  emotionsSection: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+  },
+  emotionsSectionLabel: {
+    fontFamily: Typography.fontFamily.uiBold,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: Colors.pencil,
+    marginBottom: Spacing.sm,
+  },
+  emotionTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  emotionTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  emotionTagEmoji: { fontSize: 14 },
+  emotionTagCount: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 11,
+    color: Colors.pencil,
+  },
+
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+    backgroundColor: Colors.paper,
+    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.lg,
+  },
+  action: { alignItems: 'center', gap: 4 },
+  actionLabel: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: Colors.pencil,
+  },
+});

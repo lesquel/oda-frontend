@@ -2,6 +2,7 @@ import { apiClient } from '../../auth/services/auth-api';
 import type {
   Poem,
   PoemResponse,
+  PublicUserProfile,
   CreatePoemRequest,
   UpdatePoemRequest,
   EmotionType,
@@ -107,6 +108,41 @@ export const poemsApi = {
     const url = `/users/${params.userId}/poems${query ? `?${query}` : ''}`;
     
     const response = await apiClient.get<Poem[]>(url);
+    return response.data;
+  },
+
+  /**
+   * Search poems by query and/or emotion
+   */
+  searchPoems: async (q: string, emotion?: string, limit?: number): Promise<PoemResponse[]> => {
+    const params = new URLSearchParams({ q });
+    if (emotion) params.append('emotion', emotion);
+    if (limit) params.append('limit', limit.toString());
+    const response = await apiClient.get<PoemResponse[]>(`/poems/search?${params}`);
+    return response.data;
+  },
+
+  /**
+   * Search users by query
+   */
+  searchUsers: async (q: string): Promise<PublicUserProfile[]> => {
+    const response = await apiClient.get<PublicUserProfile[]>(`/auth/users/search?q=${encodeURIComponent(q)}`);
+    return response.data;
+  },
+
+  /**
+   * Toggle bookmark on a poem — returns new bookmarked state
+   */
+  toggleBookmark: async (poemId: string): Promise<boolean> => {
+    const response = await apiClient.post<{ bookmarked: boolean }>(`/poems/${poemId}/bookmark`);
+    return response.data.bookmarked;
+  },
+
+  /**
+   * Get current user's bookmarked poems
+   */
+  getUserBookmarks: async (): Promise<PoemResponse[]> => {
+    const response = await apiClient.get<PoemResponse[]>('/bookmarks');
     return response.data;
   },
 };

@@ -17,6 +17,7 @@ import {
   Montserrat_600SemiBold,
 } from '@expo-google-fonts/montserrat';
 import { useAuthStore } from '@/features/auth/store/auth-store';
+import { useThemeStore } from '@/store/theme-store';
 
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();
@@ -37,6 +38,7 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
   const { isAuthenticated, isLoading, loadUser } = useAuthStore();
+  const { theme } = useThemeStore();
 
   // Load user on mount
   useEffect(() => {
@@ -75,7 +77,7 @@ export default function RootLayout() {
         <Stack.Screen name="register" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </>
   );
 }

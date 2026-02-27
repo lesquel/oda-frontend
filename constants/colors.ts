@@ -87,3 +87,28 @@ export const Shadows = {
     elevation: 6,
   },
 } as const;
+
+/**
+ * Dark mode colour palette — warm ink-on-night-paper
+ */
+export const DarkColors = {
+  ink:     '#E8E2D9',   // Cream text on dark background
+  paper:   '#1C1A17',   // Very dark warm background
+  surface: '#242018',   // Slightly lighter card surface
+  pencil:  '#7A746C',   // Muted secondary text
+  wax:     '#C4524A',   // Accent — slightly brighter for contrast
+
+  background: {
+    light: '#1C1A17',
+    dark:  '#130F0B',
+  },
+  text: {
+    primary:  '#E8E2D9',
+    secondary: '#7A746C',
+    inverse:  '#1C1A17',
+  },
+  border: {
+    light:  '#333028',
+    medium: '#403D36',
+  },
+} as const;

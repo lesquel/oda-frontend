@@ -1,9 +1,14 @@
-import React, { forwardRef, useCallback, useMemo } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
-import type { BottomSheetDefaultBackdropProps } from '@gorhom/bottom-sheet/lib/typescript/components/bottomSheetBackdrop/types';
+import React from 'react';
+import {
+  View,
+  Pressable,
+  StyleSheet,
+  Modal,
+  TouchableWithoutFeedback,
+  ScrollView,
+} from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Colors, Spacing } from '@/constants/colors';
+import { Colors, Spacing, Typography } from '@/constants/colors';
 import type { EmotionType } from '../types/poem';
 
 interface EmotionOption {
@@ -14,186 +19,179 @@ interface EmotionOption {
 }
 
 const EMOTIONS: EmotionOption[] = [
-  {
-    type: 'melancholic',
-    label: 'Melancholic',
-    emoji: '😔',
-    description: 'Reflective sadness, deep contemplation',
-  },
-  {
-    type: 'hopeful',
-    label: 'Hopeful',
-    emoji: '🌟',
-    description: 'Optimistic, looking forward',
-  },
-  {
-    type: 'serene',
-    label: 'Serene',
-    emoji: '☮️',
-    description: 'Peaceful, calm, tranquil',
-  },
-  {
-    type: 'passionate',
-    label: 'Passionate',
-    emoji: '🔥',
-    description: 'Intense emotion, fervent',
-  },
-  {
-    type: 'nostalgic',
-    label: 'Nostalgic',
-    emoji: '🍂',
-    description: 'Longing for the past, wistful',
-  },
-  {
-    type: 'inspiring',
-    label: 'Inspiring',
-    emoji: '✨',
-    description: 'Uplifting, motivational',
-  },
+  { type: 'melancholic', label: 'Melancólico',  emoji: '😔', description: 'Tristeza reflexiva, contemplación profunda' },
+  { type: 'hopeful',     label: 'Esperanzador', emoji: '🌟', description: 'Optimista, mirando hacia adelante' },
+  { type: 'serene',      label: 'Sereno',        emoji: '☮️', description: 'Paz, calma, tranquilidad' },
+  { type: 'passionate',  label: 'Apasionado',   emoji: '🔥', description: 'Emoción intensa, fervoroso' },
+  { type: 'nostalgic',   label: 'Nostálgico',   emoji: '🍂', description: 'Anhelo del pasado, melancolía' },
+  { type: 'inspiring',   label: 'Inspirador',   emoji: '✨', description: 'Edificante, motivador' },
 ];
 
-interface EmotionSelectorProps {
+export interface EmotionSelectorProps {
+  visible: boolean;
+  onClose: () => void;
   selectedEmotion?: EmotionType;
   onSelect: (emotion: EmotionType) => void;
   onRemove?: () => void;
 }
 
-export const EmotionSelector = forwardRef<BottomSheet, EmotionSelectorProps>(
-  ({ selectedEmotion, onSelect, onRemove }, ref) => {
-    const snapPoints = useMemo(() => ['65%'], []);
+export function EmotionSelector({
+  visible,
+  onClose,
+  selectedEmotion,
+  onSelect,
+  onRemove,
+}: EmotionSelectorProps) {
+  const handleSelect = (emotion: EmotionType) => {
+    onSelect(emotion);
+    onClose();
+  };
 
-    const renderBackdrop = useCallback(
-      (props: BottomSheetDefaultBackdropProps) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      []
-    );
+  const handleRemove = () => {
+    onRemove?.();
+    onClose();
+  };
 
-    const handleSelectEmotion = (emotion: EmotionType) => {
-      onSelect(emotion);
-      // Close bottom sheet after selection
-      if (ref && typeof ref !== 'function' && ref.current) {
-        ref.current.close();
-      }
-    };
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.overlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.sheet}>
+              <View style={styles.handle} />
 
-    const handleRemoveEmotion = () => {
-      onRemove?.();
-      if (ref && typeof ref !== 'function' && ref.current) {
-        ref.current.close();
-      }
-    };
+              <Text style={styles.sheetTitle}>¿Qué sientes al leerlo?</Text>
+              <Text style={styles.sheetSubtitle}>Comparte tu reacción</Text>
 
-    return (
-      <BottomSheet
-        ref={ref}
-        index={-1}
-        snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        enablePanDownToClose
-        backgroundStyle={{ backgroundColor: Colors.paper }}
-        handleIndicatorStyle={{ backgroundColor: Colors.pencil }}
-      >
-        <BottomSheetView style={styles.contentContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text variant="display" className="text-2xl text-ink">
-              How does this make you feel?
-            </Text>
-            <Text variant="body" className="text-sm text-pencil mt-1">
-              Tag your emotional response
-            </Text>
-          </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {EMOTIONS.map((emotion) => {
+                  const isSelected = selectedEmotion === emotion.type;
+                  return (
+                    <Pressable
+                      key={emotion.type}
+                      onPress={() => handleSelect(emotion.type)}
+                      style={[styles.emotionItem, isSelected && styles.emotionItemSelected]}
+                    >
+                      <Text style={styles.emotionEmoji}>{emotion.emoji}</Text>
+                      <View style={styles.emotionInfo}>
+                        <Text style={[styles.emotionLabel, isSelected && styles.emotionLabelSelected]}>
+                          {emotion.label}
+                        </Text>
+                        <Text style={styles.emotionDesc}>{emotion.description}</Text>
+                      </View>
+                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                    </Pressable>
+                  );
+                })}
 
-          {/* Emotion Grid */}
-          <View style={styles.grid}>
-            {EMOTIONS.map((emotion) => {
-              const isSelected = selectedEmotion === emotion.type;
-              return (
-                <Pressable
-                  key={emotion.type}
-                  onPress={() => handleSelectEmotion(emotion.type)}
-                  style={[
-                    styles.emotionCard,
-                    isSelected && styles.emotionCardSelected,
-                  ]}
-                >
-                  <Text className="text-4xl mb-2">{emotion.emoji}</Text>
-                  <Text variant="uiBold" className="text-sm text-ink mb-1">
-                    {emotion.label}
-                  </Text>
-                  <Text variant="ui" className="text-xs text-pencil text-center">
-                    {emotion.description}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Remove button (if emotion is already selected) */}
-          {selectedEmotion && onRemove && (
-            <View style={styles.footer}>
-              <Pressable
-                onPress={handleRemoveEmotion}
-                style={styles.removeButton}
-              >
-                <Text variant="uiBold" className="text-sm text-wax">
-                  Remove emotion tag
-                </Text>
-              </Pressable>
+                {onRemove && selectedEmotion && (
+                  <Pressable onPress={handleRemove} style={styles.removeBtn}>
+                    <Text style={styles.removeBtnText}>Quitar reacción</Text>
+                  </Pressable>
+                )}
+              </ScrollView>
             </View>
-          )}
-        </BottomSheetView>
-      </BottomSheet>
-    );
-  }
-);
-
-EmotionSelector.displayName = 'EmotionSelector';
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
 
 const styles = StyleSheet.create({
-  contentContainer: {
+  overlay: {
     flex: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
   },
-  header: {
+  sheet: {
+    backgroundColor: Colors.paper,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl + 16,
+    paddingTop: Spacing.md,
+    maxHeight: '72%',
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.pencil,
+    opacity: 0.35,
+    alignSelf: 'center',
+    marginBottom: Spacing.md,
+  },
+  sheetTitle: {
+    fontFamily: Typography.fontFamily.display,
+    fontSize: 22,
+    color: Colors.ink,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  sheetSubtitle: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 11,
+    color: Colors.pencil,
+    textAlign: 'center',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     marginBottom: Spacing.lg,
   },
-  grid: {
+  emotionItem: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-    justifyContent: 'space-between',
-  },
-  emotionCard: {
-    width: '48%',
-    aspectRatio: 1,
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: 8,
+    marginBottom: 8,
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: `${Colors.pencil}20`,
-    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  emotionItemSelected: {
+    borderColor: Colors.wax,
+    backgroundColor: '#A8443818',
+  },
+  emotionEmoji: {
+    fontSize: 26,
+    marginRight: Spacing.md,
+  },
+  emotionInfo: {
+    flex: 1,
+  },
+  emotionLabel: {
+    fontFamily: Typography.fontFamily.uiBold,
+    fontSize: 13,
+    color: Colors.ink,
+    marginBottom: 2,
+  },
+  emotionLabelSelected: {
+    color: Colors.wax,
+  },
+  emotionDesc: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 11,
+    color: Colors.pencil,
+  },
+  checkmark: {
+    color: Colors.wax,
+    fontSize: 16,
+  },
+  removeBtn: {
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emotionCardSelected: {
-    borderColor: Colors.ink,
-    backgroundColor: `${Colors.ink}05`,
-  },
-  footer: {
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: `${Colors.pencil}20`,
+    borderTopColor: '#E5E0D6',
   },
-  removeButton: {
-    padding: Spacing.md,
-    alignItems: 'center',
+  removeBtnText: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 13,
+    color: Colors.wax,
   },
 });

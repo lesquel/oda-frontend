@@ -1,112 +1,414 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import {
+  View,
+  TextInput,
+  FlatList,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  SafeAreaView,
+  Image,
+} from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Text } from '@/components/ui/text';
+import { PoemCard } from '@/features/poems/components/poem-card';
+import { poemsApi } from '@/features/poems/services/poems-api';
+import type { PoemResponse, PublicUserProfile, EmotionType } from '@/features/poems/types/poem';
+import { Colors, Typography, Spacing, Shadows } from '@/constants/colors';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+type SearchTab = 'poems' | 'people' | 'emotions';
 
-export default function TabTwoScreen() {
+const EMOTIONS: { key: EmotionType; label: string; emoji: string }[] = [
+  { key: 'melancholic', label: 'Melancólico',  emoji: '😔' },
+  { key: 'hopeful',     label: 'Esperanzador', emoji: '🌟' },
+  { key: 'serene',      label: 'Sereno',        emoji: '☮️' },
+  { key: 'passionate',  label: 'Apasionado',    emoji: '🔥' },
+  { key: 'nostalgic',   label: 'Nostálgico',    emoji: '🍂' },
+  { key: 'inspiring',   label: 'Inspirador',    emoji: '✨' },
+];
+
+export default function ExploreScreen() {
+  const [tab, setTab] = useState<SearchTab>('poems');
+  const [query, setQuery] = useState('');
+  const [poems, setPoems] = useState<PoemResponse[]>([]);
+  const [users, setUsers] = useState<PublicUserProfile[]>([]);
+  const [selectedEmotion, setSelectedEmotion] = useState<EmotionType | null>(null);
+  const [emotionPoems, setEmotionPoems] = useState<PoemResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runSearch = useCallback(async (q: string, currentTab: SearchTab) => {
+    if (!q.trim()) {
+      setPoems([]);
+      setUsers([]);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      if (currentTab === 'poems') {
+        const results = await poemsApi.searchPoems(q);
+        setPoems(results);
+      } else if (currentTab === 'people') {
+        const results = await poemsApi.searchUsers(q);
+        setUsers(results);
+      }
+    } catch {
+      // silent
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handleQueryChange = (text: string) => {
+    setQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      runSearch(text, tab);
+    }, 400);
+  };
+
+  const handleTabChange = (newTab: SearchTab) => {
+    setTab(newTab);
+    setPoems([]);
+    setUsers([]);
+    if (newTab !== 'emotions') {
+      runSearch(query, newTab);
+    }
+  };
+
+  const handleEmotionSelect = async (emotion: EmotionType) => {
+    const same = selectedEmotion === emotion;
+    setSelectedEmotion(same ? null : emotion);
+    if (same) { setEmotionPoems([]); return; }
+    setIsLoading(true);
+    try {
+      const results = await poemsApi.searchPoems('', emotion, 30);
+      setEmotionPoems(results);
+    } catch {
+      setEmotionPoems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderUserItem = ({ item }: { item: PublicUserProfile }) => (
+    <Pressable
+      style={styles.userRow}
+      onPress={() => router.push(`/profile/${item.username}` as any)}>
+      <View style={styles.avatarCircle}>
+        {item.avatar ? (
+          <Image source={{ uri: item.avatar }} style={styles.avatar} />
+        ) : (
+          <Text style={styles.avatarInitial}>
+            {(item.name || item.username).charAt(0).toUpperCase()}
+          </Text>
+        )}
+      </View>
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{item.name || item.username}</Text>
+        <Text style={styles.userHandle}>@{item.username}</Text>
+        {item.bio ? (
+          <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text>
+        ) : null}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.pencil} />
+    </Pressable>
+  );
+
+  const poemData = tab === 'emotions' ? emotionPoems : poems;
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <SafeAreaView style={styles.root}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Buscar</Text>
+      </View>
+
+      {/* Search bar */}
+      <View style={styles.searchBar}>
+        <Ionicons name="search-outline" size={18} color={Colors.pencil} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          value={query}
+          onChangeText={handleQueryChange}
+          placeholder={
+            tab === 'poems'   ? 'Buscar poemas…'   :
+            tab === 'people'  ? 'Buscar personas…' :
+                                'Elige una emoción…'
+          }
+          placeholderTextColor={Colors.pencil}
+          editable={tab !== 'emotions'}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
+        {query.length > 0 && (
+          <Pressable onPress={() => { setQuery(''); setPoems([]); setUsers([]); }}>
+            <Ionicons name="close-circle" size={18} color={Colors.pencil} />
+          </Pressable>
+        )}
+      </View>
+
+      {/* Tab selector */}
+      <View style={styles.tabRow}>
+        {(['poems', 'people', 'emotions'] as SearchTab[]).map((t) => {
+          const labels: Record<SearchTab, string> = {
+            poems:    'Poemas',
+            people:   'Personas',
+            emotions: 'Emociones',
+          };
+          return (
+            <Pressable
+              key={t}
+              style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
+              onPress={() => handleTabChange(t)}>
+              <Text style={[styles.tabLabel, tab === t && styles.tabLabelActive]}>
+                {labels[t]}
+              </Text>
+            </Pressable>
+          );
         })}
-      </Collapsible>
-    </ParallaxScrollView>
+      </View>
+
+      {/* Content */}
+      {isLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={Colors.ink} />
+        </View>
+      ) : tab === 'emotions' ? (
+        <FlatList
+          data={emotionPoems}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <View style={styles.emotionGrid}>
+              {EMOTIONS.map((e) => (
+                <Pressable
+                  key={e.key}
+                  style={[
+                    styles.emotionChip,
+                    selectedEmotion === e.key && styles.emotionChipActive,
+                  ]}
+                  onPress={() => handleEmotionSelect(e.key)}>
+                  <Text style={styles.emotionEmoji}>{e.emoji}</Text>
+                  <Text style={[
+                    styles.emotionLabel,
+                    selectedEmotion === e.key && styles.emotionLabelActive,
+                  ]}>
+                    {e.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.cardWrapper}>
+              <PoemCard poem={item} />
+            </View>
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            selectedEmotion ? (
+              <View style={styles.centered}>
+                <Text style={styles.emptyText}>Sin poemas para esta emoción</Text>
+              </View>
+            ) : null
+          }
+        />
+      ) : tab === 'people' ? (
+        <FlatList
+          data={users}
+          keyExtractor={(item) => item.id}
+          renderItem={renderUserItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <Text style={styles.emptyText}>
+                {query.trim() ? `Sin resultados para "${query}"` : 'Escribe un nombre para buscar'}
+              </Text>
+            </View>
+          }
+        />
+      ) : (
+        <FlatList
+          data={poemData}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.cardWrapper}>
+              <PoemCard poem={item} />
+            </View>
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <Text style={styles.emptyText}>
+                {query.trim() ? `Sin resultados para "${query}"` : 'Escribe para buscar poemas'}
+              </Text>
+            </View>
+          }
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  root: { flex: 1, backgroundColor: Colors.paper },
+
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  titleContainer: {
+  headerTitle: {
+    fontFamily: Typography.fontFamily.display,
+    fontSize: 30,
+    color: Colors.ink,
+  },
+
+  searchBar: {
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    ...Shadows.lift,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: {
+    flex: 1,
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 14,
+    color: Colors.ink,
+  },
+
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
     gap: 8,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    alignItems: 'center',
+  },
+  tabBtnActive: {
+    backgroundColor: Colors.ink,
+    borderColor: Colors.ink,
+  },
+  tabLabel: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.pencil,
+  },
+  tabLabelActive: {
+    color: Colors.paper,
+  },
+
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+  },
+  emptyText: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 13,
+    color: Colors.pencil,
+    textAlign: 'center',
+  },
+
+  list: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 80,
+  },
+  cardWrapper: {
+    marginBottom: Spacing.md,
+  },
+
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    ...Shadows.lift,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.border.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginRight: Spacing.md,
+  },
+  avatar: { width: 44, height: 44 },
+  avatarInitial: {
+    fontFamily: Typography.fontFamily.uiBold,
+    fontSize: 18,
+    color: Colors.ink,
+  },
+  userInfo: { flex: 1 },
+  userName: {
+    fontFamily: Typography.fontFamily.uiBold,
+    fontSize: 13,
+    color: Colors.ink,
+  },
+  userHandle: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 11,
+    color: Colors.pencil,
+    marginTop: 1,
+  },
+  userBio: {
+    fontFamily: Typography.fontFamily.bodyItalic,
+    fontSize: 12,
+    color: Colors.pencil,
+    marginTop: 2,
+  },
+
+  emotionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: Spacing.lg,
+  },
+  emotionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  emotionChipActive: {
+    backgroundColor: Colors.ink,
+    borderColor: Colors.ink,
+  },
+  emotionEmoji: { fontSize: 16 },
+  emotionLabel: {
+    fontFamily: Typography.fontFamily.ui,
+    fontSize: 12,
+    color: Colors.ink,
+  },
+  emotionLabelActive: {
+    color: Colors.paper,
   },
 });
