@@ -27,6 +27,8 @@ export interface UserStats {
   draft_count: number;
   total_likes: number;
   total_views: number;
+  total_bookmarks: number;
+  emotion_distribution?: Record<string, number>;
 }
 
 /**

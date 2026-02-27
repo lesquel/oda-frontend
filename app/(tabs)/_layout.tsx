@@ -21,7 +21,7 @@ export default function TabLayout() {
           borderTopWidth: 1,
         },
       }}>
-      {/* Home — left */}
+      {/* Home — feed */}
       <Tabs.Screen
         name="index"
         options={{
@@ -31,7 +31,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Search — centre */}
+      {/* Search */}
       <Tabs.Screen
         name="explore"
         options={{
@@ -41,7 +41,17 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Profile — right */}
+      {/* Impact / Stats */}
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: 'Impacto',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bar-chart-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      {/* Profile */}
       <Tabs.Screen
         name="profile"
         options={{
