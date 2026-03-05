@@ -18,6 +18,7 @@ import {
 } from '@expo-google-fonts/montserrat';
 import { useAuthStore } from '@/features/auth/store/auth-store';
 import { useThemeStore } from '@/store/theme-store';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();
@@ -70,7 +71,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="login" />
@@ -81,6 +82,6 @@ export default function RootLayout() {
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-    </>
+    </ErrorBoundary>
   );
 }
