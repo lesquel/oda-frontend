@@ -33,8 +33,8 @@ export interface Poem {
 export interface PoemResponse extends Poem {
   is_liked: boolean;
   is_bookmarked: boolean;
-  user_emotion?: EmotionType;
-  emotion_counts?: Record<EmotionType, number>;
+  user_emotion?: string;
+  emotion_counts?: Record<string, number>;
 }
 
 export interface PublicUserProfile {

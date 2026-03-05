@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
 import { Spacing, Typography, Shadows } from '@/constants/colors';
 import { poemsApi } from '@/features/poems/services/poems-api';
-import type { PoemResponse, EmotionType } from '@/features/poems/types/poem';
+import type { PoemResponse } from '@/features/poems/types/poem';
 import { EmotionSelector } from '@/features/poems/components/emotion-selector';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -24,12 +24,35 @@ type ThemeColors = ReturnType<typeof useThemedColors>;
 
 const EMOTION_EMOJI: Record<string, string> = {
   melancholic: '😔',
+  melancolico: '😔',
+  melancólico: '😔',
   hopeful:     '🌟',
+  esperanzador: '🌟',
   serene:      '☮️',
+  sereno: '☮️',
   passionate:  '🔥',
+  apasionado: '🔥',
   nostalgic:   '🍂',
+  nostalgico: '🍂',
+  nostálgico: '🍂',
   inspiring:   '✨',
+  inspirador: '✨',
+  rebelde: '⚡',
 };
+
+function emotionKey(value?: string): string {
+  if (!value) return '';
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+function emotionEmoji(value?: string): string {
+  const key = emotionKey(value);
+  return EMOTION_EMOJI[key] ?? '💭';
+}
 
 export default function PoemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -91,7 +114,7 @@ export default function PoemDetailScreen() {
     await shareContent({ title: poem.title, text: message });
   };
 
-  const handleSelectEmotion = async (emotionId: string, _emotion: EmotionType) => {
+  const handleSelectEmotion = async (emotionId: string, _emotion: string) => {
     if (!poem) return;
     try {
       if (!emotionId) return;
@@ -207,7 +230,7 @@ export default function PoemDetailScreen() {
             <View style={styles.emotionTags}>
               {Object.entries(poem.emotion_counts).map(([emotion, count]) => (
                 <View key={emotion} style={styles.emotionTag}>
-                  <Text style={styles.emotionTagEmoji}>{EMOTION_EMOJI[emotion] ?? '💭'}</Text>
+                  <Text style={styles.emotionTagEmoji}>{emotionEmoji(emotion)}</Text>
                   <Text style={styles.emotionTagCount}>{count}</Text>
                 </View>
               ))}
@@ -231,7 +254,7 @@ export default function PoemDetailScreen() {
 
         <Pressable onPress={() => requireAuth(() => setEmotionVisible(true))} style={styles.action}>
           <Text style={{ fontSize: 22 }}>
-            {poem.user_emotion ? EMOTION_EMOJI[poem.user_emotion] : '💭'}
+            {emotionEmoji(poem.user_emotion)}
           </Text>
           <Text style={styles.actionLabel}>Sentir</Text>
         </Pressable>

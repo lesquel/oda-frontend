@@ -11,13 +11,12 @@ import { Text } from '@/components/ui/text';
 import { Spacing, Typography } from '@/constants/colors';
 import { useThemedColors } from '@/hooks/use-themed-colors';
 import { poemsApi } from '../services/poems-api';
-import type { EmotionType } from '../types/poem';
 
 type ThemeColors = ReturnType<typeof useThemedColors>;
 
 interface EmotionOption {
   id: string;
-  type: EmotionType;
+  type: string;
   label: string;
   emoji: string;
   description: string;
@@ -35,8 +34,8 @@ const FALLBACK_EMOTIONS: EmotionOption[] = [
 export interface EmotionSelectorProps {
   visible: boolean;
   onClose: () => void;
-  selectedEmotion?: EmotionType;
-  onSelect: (emotionId: string, emotion: EmotionType) => void;
+  selectedEmotion?: string;
+  onSelect: (emotionId: string, emotion: string) => void;
   onRemove?: () => void;
 }
 
@@ -60,7 +59,7 @@ export function EmotionSelector({
           setEmotions(
             catalog.map((e) => ({
               id: e.id,
-              type: ((e as any).slug ?? (e as any).name) as EmotionType,
+              type: ((e as any).slug ?? (e as any).name) as string,
               label: (e as any).label ?? (e as any).name,
               emoji: e.emoji,
               description: e.description,

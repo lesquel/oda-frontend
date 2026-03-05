@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useThemedColors } from '@/hooks/use-themed-colors';
+import { Typography } from '@/constants/colors';
 
 export default function TabLayout() {
   const C = useThemedColors();
@@ -19,6 +20,10 @@ export default function TabLayout() {
           backgroundColor: C.surface,
           borderTopColor: C.border.light,
           borderTopWidth: 1,
+        },
+        tabBarLabelStyle: {
+          fontFamily: Typography.fontFamily.ui,
+          fontSize: 11,
         },
       }}>
       {/* Home — feed */}
@@ -41,16 +46,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Settings */}
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Ajustes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
-        }}
-      />
       {/* Profile */}
       <Tabs.Screen
         name="profile"
@@ -58,6 +53,16 @@ export default function TabLayout() {
           title: 'Perfil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      {/* Settings */}
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Ajustes',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
           ),
         }}
       />

@@ -45,9 +45,11 @@ app/
   compose.tsx              Editor de poemas
   modal.tsx
   (tabs)/
-    _layout.tsx            Tab bar (Feed + Perfil)
+    _layout.tsx            Tab bar (Inicio · Buscar · Perfil · Ajustes)
     index.tsx              Feed con scroll infinito
+    explore.tsx            Búsqueda de poemas
     profile.tsx            Perfil del usuario + stats
+    settings.tsx           Ajustes de tema / tipografía / escala
   poem/
     [id].tsx               Sala de lectura (detalle de poema)
 
@@ -90,9 +92,16 @@ constants/
 | `/login` | Inicio de sesión |
 | `/register` | Registro |
 | `/(tabs)/` | Feed principal con scroll infinito |
+| `/(tabs)/explore` | Búsqueda |
 | `/(tabs)/profile` | Perfil + estadísticas del usuario |
+| `/(tabs)/settings` | Ajustes de app |
 | `/poem/[id]` | Sala de lectura con emociones |
 | `/compose` | Editor de poemas (nuevo/editar) |
+
+## Notas de tipografía
+
+- Las fuentes se cargan en `app/_layout.tsx` con `useFonts`.
+- El tab bar usa `Typography.fontFamily.ui` para los labels.
 
 ## Type-check
 
