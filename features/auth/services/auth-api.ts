@@ -1,5 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { mapAuthResponseDTO, mapUserDTO } from '../mappers/auth-mapper';
+import type { AuthResponseDTO, UserDTO } from '../types/auth-dto';
 
 // API base URL - use environment variable or default to localhost
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api';
@@ -99,6 +101,7 @@ export interface User {
   name: string;
   bio?: string;
   avatar?: string;
+  avatar_url?: string;
   website?: string;
   instagram?: string;
   twitter?: string;
@@ -137,22 +140,29 @@ const storeTokens = async (res: AuthResponse) => {
 export const authApi = {
   /** Register a new user */
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/register', data);
-    await storeTokens(response.data);
-    return response.data;
+    const payload = {
+      email: data.email,
+      username: data.username,
+      password: data.password,
+    };
+    const response = await apiClient.post<AuthResponseDTO>('/auth/register', payload);
+    const mapped = mapAuthResponseDTO(response.data);
+    await storeTokens(mapped);
+    return mapped;
   },
 
   /** Login user */
   async login(data: LoginRequest): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/login', data);
-    await storeTokens(response.data);
-    return response.data;
+    const response = await apiClient.post<AuthResponseDTO>('/auth/login', data);
+    const mapped = mapAuthResponseDTO(response.data);
+    await storeTokens(mapped);
+    return mapped;
   },
 
   /** Get current user profile */
   async getProfile(): Promise<User> {
-    const response = await apiClient.get<User>('/me');
-    return response.data;
+    const response = await apiClient.get<UserDTO>('/me');
+    return mapUserDTO(response.data);
   },
 
   /** Logout user: revokes refresh token on server and clears local storage */

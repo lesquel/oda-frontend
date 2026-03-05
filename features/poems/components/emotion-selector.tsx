@@ -74,7 +74,7 @@ export function EmotionSelector({
   }, [visible]);
 
   const handleSelect = (emotion: EmotionOption) => {
-    onSelect(emotion.id, emotion.type);
+    onSelect(emotion.id || emotion.type, emotion.type);
     onClose();
   };
 

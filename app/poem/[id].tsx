@@ -4,6 +4,7 @@ import {
   Pressable,
   ActivityIndicator,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useEffect, useState, useMemo } from 'react';
@@ -35,6 +36,7 @@ export default function PoemDetailScreen() {
   const [poem, setPoem] = useState<PoemResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [emotionVisible, setEmotionVisible] = useState(false);
   const { isAuthenticated } = useAuthStore();
   const C = useThemedColors();
@@ -54,6 +56,7 @@ export default function PoemDetailScreen() {
       setError(null);
       const data = await poemsApi.getPoemById(id);
       setPoem(data);
+      setActionError(null);
     } catch (err: any) {
       setError(err.message || 'No se pudo cargar el poema');
     } finally {
@@ -95,7 +98,10 @@ export default function PoemDetailScreen() {
       await poemsApi.tagEmotion(poem.id, emotionId);
       const updated = await poemsApi.getPoemById(poem.id);
       setPoem(updated);
-    } catch {}
+      setActionError(null);
+    } catch {
+      setActionError('No se pudo guardar tu sentimiento. Intentá nuevamente.');
+    }
   };
 
   const handleRemoveEmotion = async () => {
@@ -156,7 +162,11 @@ export default function PoemDetailScreen() {
         {/* ── Author row ── */}
         <View style={styles.authorRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            {poem.author?.avatar ? (
+              <Image source={{ uri: poem.author.avatar }} style={styles.avatarImage} resizeMode="cover" />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
           </View>
           <View>
             <Pressable onPress={() => poem.author?.username && router.push(`/user/${poem.author.username}` as any)}>
@@ -170,11 +180,23 @@ export default function PoemDetailScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Ionicons name={poem.is_liked ? 'heart' : 'heart-outline'} size={16} color={poem.is_liked ? C.wax : C.pencil} />
-            <Text style={styles.statValue}>{Number.isFinite(poem.like_count) ? poem.like_count : 0}</Text>
+            <Text style={styles.statValue}>
+              {Number.isFinite(poem.like_count)
+                ? poem.like_count
+                : Number.isFinite(poem.likes_count)
+                ? poem.likes_count
+                : 0}
+            </Text>
           </View>
           <View style={styles.statItem}>
             <Ionicons name="eye-outline" size={16} color={C.pencil} />
-            <Text style={styles.statValue}>{Number.isFinite(poem.view_count) ? poem.view_count : 0}</Text>
+            <Text style={styles.statValue}>
+              {Number.isFinite(poem.view_count)
+                ? poem.view_count
+                : Number.isFinite(poem.views_count)
+                ? poem.views_count
+                : 0}
+            </Text>
           </View>
         </View>
 
@@ -192,6 +214,8 @@ export default function PoemDetailScreen() {
             </View>
           </View>
         )}
+
+        {actionError ? <Text style={styles.inlineError}>{actionError}</Text> : null}
       </ScrollView>
 
       {/* ── Action bar ── */}
@@ -244,6 +268,13 @@ function makeStyles(C: ThemeColors) {
     root: { flex: 1, backgroundColor: C.paper },
     centered: { flex: 1, backgroundColor: C.paper, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
     errorText: { fontFamily: Typography.fontFamily.ui, color: C.wax, textAlign: 'center' },
+    inlineError: {
+      fontFamily: Typography.fontFamily.ui,
+      color: C.wax,
+      textAlign: 'center',
+      marginHorizontal: Spacing.lg,
+      marginBottom: Spacing.md,
+    },
     backLink: { fontFamily: Typography.fontFamily.uiBold, color: C.ink, fontSize: 14 },
 
     header: {
@@ -313,6 +344,11 @@ function makeStyles(C: ThemeColors) {
       backgroundColor: `${C.pencil}30`,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarText: {
       fontFamily: Typography.fontFamily.display,

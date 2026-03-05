@@ -6,6 +6,7 @@ import {
   StyleSheet,
   SafeAreaView,
   Linking,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useEffect, useState, useMemo } from 'react';
@@ -45,7 +46,7 @@ export default function PublicProfileScreen() {
 
       try {
         const poemsData = await usersApi.getUserPoems(profileData.id, 'published');
-        setPoems(poemsData.map((p) => ({ ...p, is_liked: false, is_bookmarked: false })));
+        setPoems(poemsData as PoemResponse[]);
       } catch {
         setPoems([]);
       }
@@ -113,9 +114,13 @@ export default function PublicProfileScreen() {
       {/* Hero */}
       <View style={styles.heroSection}>
         <View style={styles.avatarCircle}>
-          <Text variant="display" style={styles.avatarText}>
-            {initials(profile.name || profile.username)}
-          </Text>
+          {profile.avatar ? (
+            <Image source={{ uri: profile.avatar }} style={styles.avatarImage} resizeMode="cover" />
+          ) : (
+            <Text variant="display" style={styles.avatarText}>
+              {initials(profile.name || profile.username)}
+            </Text>
+          )}
         </View>
         <Text variant="display" style={styles.displayName}>
           {profile.name}
@@ -268,6 +273,11 @@ function makeStyles(C: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: Spacing.md,
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarText: {
       fontSize: Typography.fontSize.xl,

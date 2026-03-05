@@ -23,7 +23,9 @@ export interface Poem {
   author?: User;
   status: PoemStatus;
   view_count: number;
+  views_count?: number;
   like_count: number;
+  likes_count?: number;
   created_at: string;
   updated_at: string;
 }

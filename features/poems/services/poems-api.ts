@@ -1,4 +1,5 @@
 import { apiClient } from '../../auth/services/auth-api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Poem,
   PoemResponse,
@@ -8,6 +9,8 @@ import type {
   EmotionType,
   PoemStatus
 } from '../types/poem';
+import type { PoemDTO } from '../types/poem-dto';
+import { mapPoemDTO, mapPoemDTOList, type PoemInteractionState } from '../mappers/poem-mapper';
 
 export interface EmotionCatalogEntry {
   id: string;
@@ -38,30 +41,58 @@ export interface TagEmotionResponse {
   emotion: EmotionType;
 }
 
-function toNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+const INTERACTIONS_CACHE_KEY = 'poem_interactions_cache_v1';
+
+let interactionsCache: Record<string, PoemInteractionState> = {};
+let cacheLoaded = false;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function ensureInteractionsLoaded() {
+  if (cacheLoaded) return;
+  cacheLoaded = true;
+  try {
+    const raw = await AsyncStorage.getItem(INTERACTIONS_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      interactionsCache = parsed as Record<string, PoemInteractionState>;
+    }
+  } catch {
+    interactionsCache = {};
   }
-  return 0;
 }
 
-function normalizePoem<T extends Record<string, any>>(poem: T): T {
-  const likes = poem.likes_count ?? poem.like_count;
-  const views = poem.views_count ?? poem.view_count;
-
-  return {
-    ...poem,
-    likes_count: toNumber(likes),
-    views_count: toNumber(views),
-    like_count: toNumber(likes),
-    view_count: toNumber(views),
-  };
+async function persistInteractions() {
+  try {
+    await AsyncStorage.setItem(INTERACTIONS_CACHE_KEY, JSON.stringify(interactionsCache));
+  } catch {
+    // best effort cache
+  }
 }
 
-function normalizePoems<T extends Record<string, any>>(poems: T[]): T[] {
-  return poems.map((poem) => normalizePoem(poem));
+async function resolveEmotionId(emotionRef: string): Promise<string> {
+  const trimmed = emotionRef.trim();
+  if (!trimmed) {
+    throw new Error('Emotion ID is required');
+  }
+  if (UUID_REGEX.test(trimmed)) {
+    return trimmed;
+  }
+
+  const response = await apiClient.get<EmotionCatalogEntry[]>('/emotions');
+  const normalized = trimmed.toLowerCase();
+  const matched = response.data.find((emotion) => {
+    const values = [emotion.id, emotion.slug, emotion.name, emotion.label]
+      .filter(Boolean)
+      .map((value) => value!.toLowerCase());
+    return values.includes(normalized);
+  });
+
+  if (!matched?.id) {
+    throw new Error('Emotion not found in catalog');
+  }
+
+  return matched.id;
 }
 
 export const poemsApi = {
@@ -69,6 +100,7 @@ export const poemsApi = {
    * Get paginated feed of poems
    */
   getFeed: async (params?: GetFeedParams): Promise<PoemResponse[]> => {
+    await ensureInteractionsLoaded();
     const queryParams = new URLSearchParams();
     if (params?.cursor) queryParams.append('cursor', params.cursor);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
@@ -76,16 +108,17 @@ export const poemsApi = {
     const query = queryParams.toString();
     const url = `/poems/feed${query ? `?${query}` : ''}`;
     
-    const response = await apiClient.get<PoemResponse[]>(url);
-    return normalizePoems(response.data);
+    const response = await apiClient.get<PoemDTO[]>(url);
+    return mapPoemDTOList(response.data, interactionsCache);
   },
 
   /**
    * Get a single poem by ID
    */
   getPoemById: async (poemId: string): Promise<PoemResponse> => {
-    const response = await apiClient.get<PoemResponse>(`/poems/${poemId}`);
-    return normalizePoem(response.data);
+    await ensureInteractionsLoaded();
+    const response = await apiClient.get<PoemDTO>(`/poems/${poemId}`);
+    return mapPoemDTO(response.data, interactionsCache[poemId]);
   },
 
   /**
@@ -115,7 +148,13 @@ export const poemsApi = {
    * Toggle like on a poem
    */
   toggleLike: async (poemId: string): Promise<boolean> => {
+    await ensureInteractionsLoaded();
     const response = await apiClient.post<ToggleLikeResponse>(`/poems/${poemId}/like`);
+    interactionsCache[poemId] = {
+      ...(interactionsCache[poemId] ?? {}),
+      is_liked: response.data.is_liked,
+    };
+    await persistInteractions();
     return response.data.is_liked;
   },
 
@@ -123,7 +162,8 @@ export const poemsApi = {
    * Tag an emotion on a poem
    */
   tagEmotion: async (poemId: string, emotionId: string): Promise<void> => {
-    await apiClient.post(`/poems/${poemId}/emotions`, { emotion_id: emotionId });
+    const resolvedEmotionId = await resolveEmotionId(emotionId);
+    await apiClient.post(`/poems/${poemId}/emotions`, { emotion_id: resolvedEmotionId });
   },
 
   /**
@@ -137,25 +177,27 @@ export const poemsApi = {
    * Get poems by a specific user
    */
   getUserPoems: async (params: GetUserPoemsParams): Promise<Poem[]> => {
+    await ensureInteractionsLoaded();
     const queryParams = new URLSearchParams();
     if (params.status) queryParams.append('status', params.status);
     
     const query = queryParams.toString();
     const url = `/users/${params.userId}/poems${query ? `?${query}` : ''}`;
     
-    const response = await apiClient.get<Poem[]>(url);
-    return normalizePoems(response.data);
+    const response = await apiClient.get<PoemDTO[]>(url);
+    return mapPoemDTOList(response.data, interactionsCache);
   },
 
   /**
    * Search poems by query and/or emotion
    */
   searchPoems: async (q: string, emotion?: string, limit?: number): Promise<PoemResponse[]> => {
+    await ensureInteractionsLoaded();
     const params = new URLSearchParams({ q });
     if (emotion) params.append('emotion', emotion);
     if (limit) params.append('limit', limit.toString());
-    const response = await apiClient.get<PoemResponse[]>(`/poems/search?${params}`);
-    return normalizePoems(response.data);
+    const response = await apiClient.get<PoemDTO[]>(`/poems/search?${params}`);
+    return mapPoemDTOList(response.data, interactionsCache);
   },
 
   /**
@@ -170,7 +212,13 @@ export const poemsApi = {
    * Toggle bookmark on a poem — returns new bookmarked state
    */
   toggleBookmark: async (poemId: string): Promise<boolean> => {
+    await ensureInteractionsLoaded();
     const response = await apiClient.post<{ bookmarked: boolean }>(`/poems/${poemId}/bookmark`);
+    interactionsCache[poemId] = {
+      ...(interactionsCache[poemId] ?? {}),
+      is_bookmarked: response.data.bookmarked,
+    };
+    await persistInteractions();
     return response.data.bookmarked;
   },
 
@@ -178,8 +226,9 @@ export const poemsApi = {
    * Get current user's bookmarked poems
    */
   getUserBookmarks: async (): Promise<PoemResponse[]> => {
-    const response = await apiClient.get<PoemResponse[]>('/bookmarks');
-    return normalizePoems(response.data);
+    await ensureInteractionsLoaded();
+    const response = await apiClient.get<PoemDTO[]>('/bookmarks');
+    return mapPoemDTOList(response.data, interactionsCache);
   },
 
   /**

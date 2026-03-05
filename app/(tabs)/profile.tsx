@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  Image,
 } from 'react-native';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { router } from 'expo-router';
@@ -72,6 +73,7 @@ export default function ProfileScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [editWebsite, setEditWebsite] = useState('');
   const [editInstagram, setEditInstagram] = useState('');
   const [editTwitter, setEditTwitter] = useState('');
@@ -104,7 +106,7 @@ export default function ProfileScreen() {
           setPoems(data);
         } else {
           const data = await usersApi.getUserPoems(user.id, tab as 'published' | 'draft');
-          setPoems(data.map((p) => ({ ...p, is_liked: false, is_bookmarked: false })));
+          setPoems(data as PoemResponse[]);
         }
       } catch {
         setPoems([]);
@@ -187,6 +189,7 @@ export default function ProfileScreen() {
   const openEdit = () => {
     setEditName(user?.name ?? '');
     setEditBio(user?.bio ?? '');
+    setEditAvatarUrl(user?.avatar_url ?? user?.avatar ?? '');
     setEditWebsite(user?.website ?? '');
     setEditInstagram(user?.instagram ?? '');
     setEditTwitter(user?.twitter ?? '');
@@ -205,6 +208,7 @@ export default function ProfileScreen() {
       await updateProfile({
         name: editName.trim(),
         bio: editBio.trim(),
+        avatarUrl: editAvatarUrl.trim(),
         website: editWebsite.trim(),
         instagram: editInstagram.trim().replace(/^@/, ''),
         twitter: editTwitter.trim().replace(/^@/, ''),
@@ -215,6 +219,32 @@ export default function ProfileScreen() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const pickAvatarImage = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      setEditError('Por ahora la subida directa está disponible en web. En móvil usá una URL de imagen.');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        if (result) {
+          setEditAvatarUrl(result);
+          setEditError(null);
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
   };
 
   // --------------- Helpers ---------------
@@ -386,9 +416,17 @@ export default function ProfileScreen() {
       {/* Avatar + identity */}
       <View style={styles.heroSection}>
         <View style={styles.avatarCircle}>
-          <Text variant="display" style={styles.avatarText}>
-            {initials(user?.name ?? user?.username ?? '?')}
-          </Text>
+          {user?.avatar_url || user?.avatar ? (
+            <Image
+              source={{ uri: user.avatar_url ?? user.avatar }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text variant="display" style={styles.avatarText}>
+              {initials(user?.name ?? user?.username ?? '?')}
+            </Text>
+          )}
         </View>
         <Text variant="display" style={styles.displayName}>
           {user?.name}
@@ -710,6 +748,26 @@ export default function ProfileScreen() {
             </Text>
 
             <Text variant="ui" style={styles.fieldLabel}>
+              Avatar URL
+            </Text>
+            <Pressable style={styles.uploadBtn} onPress={pickAvatarImage}>
+              <Ionicons name="image-outline" size={14} color={C.ink} />
+              <Text variant="ui" style={styles.uploadBtnText}>
+                Subir imagen
+              </Text>
+            </Pressable>
+            <TextInput
+              style={styles.fieldInput}
+              value={editAvatarUrl}
+              onChangeText={setEditAvatarUrl}
+              placeholder="https://.../avatar.jpg"
+              placeholderTextColor={C.pencil}
+              autoCapitalize="none"
+              keyboardType="url"
+              maxLength={300}
+            />
+
+            <Text variant="ui" style={styles.fieldLabel}>
               Sitio web
             </Text>
             <TextInput
@@ -961,6 +1019,11 @@ function makeStyles(C: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: Spacing.md,
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarText: {
       fontSize: Typography.fontSize['2xl'],
@@ -1287,6 +1350,24 @@ function makeStyles(C: ThemeColors) {
       fontFamily: Typography.fontFamily.body,
       color: C.ink,
       backgroundColor: C.surface,
+    },
+    uploadBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      borderWidth: 1,
+      borderColor: C.border.light,
+      borderRadius: 8,
+      paddingVertical: Spacing.sm,
+      marginBottom: Spacing.sm,
+      backgroundColor: C.surface,
+    },
+    uploadBtnText: {
+      color: C.ink,
+      fontSize: Typography.fontSize.xs,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
     },
     fieldInputMultiline: {
       height: 100,

@@ -104,15 +104,25 @@ export function PoemCard({ poem, onLike, onBookmark }: PoemCardProps) {
               {/* Like — count always visible; interactive only when authenticated */}
               {isAuthenticated ? (
                 <Pressable onPress={handleLike} style={styles.actionBtn} hitSlop={8}>
-                  <Text style={styles.likeIcon}>{poem.is_liked ? '❤️' : '🤍'}</Text>
-                  <Text style={styles.likeCount}>{poem.like_count ?? 0}</Text>
+                  <Ionicons
+                    name={poem.is_liked ? 'heart' : 'heart-outline'}
+                    size={14}
+                    color={poem.is_liked ? C.wax : C.pencil}
+                  />
+                  <Text style={styles.likeCount}>{poem.like_count ?? poem.likes_count ?? 0}</Text>
                 </Pressable>
               ) : (
                 <View style={styles.actionBtn}>
-                  <Text style={styles.likeIcon}>🤍</Text>
-                  <Text style={styles.likeCount}>{poem.like_count ?? 0}</Text>
+                  <Ionicons name="heart-outline" size={14} color={C.pencil} />
+                  <Text style={styles.likeCount}>{poem.like_count ?? poem.likes_count ?? 0}</Text>
                 </View>
               )}
+
+              <View style={styles.actionBtn}>
+                <Ionicons name="eye-outline" size={14} color={C.pencil} />
+                <Text style={styles.likeCount}>{poem.view_count ?? poem.views_count ?? 0}</Text>
+              </View>
+
               {/* Bookmark */}
               {isAuthenticated && (
                 <Pressable onPress={handleBookmark} style={styles.actionBtn} hitSlop={8}>
@@ -217,9 +227,6 @@ function makeStyles(C: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 3,
-    },
-    likeIcon: {
-      fontSize: 12,
     },
     likeCount: {
       fontFamily: Typography.fontFamily.ui,
