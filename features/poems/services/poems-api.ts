@@ -11,11 +11,12 @@ import type {
 
 export interface EmotionCatalogEntry {
   id: string;
-  slug: string;
-  label: string;
+  slug?: string;
+  name?: string;
+  label?: string;
   emoji: string;
   description: string;
-  display_order: number;
+  display_order?: number;
 }
 
 export interface GetFeedParams {
@@ -37,6 +38,32 @@ export interface TagEmotionResponse {
   emotion: EmotionType;
 }
 
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function normalizePoem<T extends Record<string, any>>(poem: T): T {
+  const likes = poem.likes_count ?? poem.like_count;
+  const views = poem.views_count ?? poem.view_count;
+
+  return {
+    ...poem,
+    likes_count: toNumber(likes),
+    views_count: toNumber(views),
+    like_count: toNumber(likes),
+    view_count: toNumber(views),
+  };
+}
+
+function normalizePoems<T extends Record<string, any>>(poems: T[]): T[] {
+  return poems.map((poem) => normalizePoem(poem));
+}
+
 export const poemsApi = {
   /**
    * Get paginated feed of poems
@@ -50,7 +77,7 @@ export const poemsApi = {
     const url = `/poems/feed${query ? `?${query}` : ''}`;
     
     const response = await apiClient.get<PoemResponse[]>(url);
-    return response.data;
+    return normalizePoems(response.data);
   },
 
   /**
@@ -58,7 +85,7 @@ export const poemsApi = {
    */
   getPoemById: async (poemId: string): Promise<PoemResponse> => {
     const response = await apiClient.get<PoemResponse>(`/poems/${poemId}`);
-    return response.data;
+    return normalizePoem(response.data);
   },
 
   /**
@@ -95,8 +122,8 @@ export const poemsApi = {
   /**
    * Tag an emotion on a poem
    */
-  tagEmotion: async (poemId: string, emotion: EmotionType): Promise<void> => {
-    await apiClient.post(`/poems/${poemId}/emotions`, { emotion });
+  tagEmotion: async (poemId: string, emotionId: string): Promise<void> => {
+    await apiClient.post(`/poems/${poemId}/emotions`, { emotion_id: emotionId });
   },
 
   /**
@@ -117,7 +144,7 @@ export const poemsApi = {
     const url = `/users/${params.userId}/poems${query ? `?${query}` : ''}`;
     
     const response = await apiClient.get<Poem[]>(url);
-    return response.data;
+    return normalizePoems(response.data);
   },
 
   /**
@@ -128,7 +155,7 @@ export const poemsApi = {
     if (emotion) params.append('emotion', emotion);
     if (limit) params.append('limit', limit.toString());
     const response = await apiClient.get<PoemResponse[]>(`/poems/search?${params}`);
-    return response.data;
+    return normalizePoems(response.data);
   },
 
   /**
@@ -152,7 +179,7 @@ export const poemsApi = {
    */
   getUserBookmarks: async (): Promise<PoemResponse[]> => {
     const response = await apiClient.get<PoemResponse[]>('/bookmarks');
-    return response.data;
+    return normalizePoems(response.data);
   },
 
   /**

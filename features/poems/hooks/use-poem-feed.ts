@@ -78,8 +78,8 @@ export function usePoemFeed() {
                 ...poem,
                 is_liked: isLiked,
                 like_count: isLiked
-                  ? poem.like_count + 1
-                  : Math.max(0, poem.like_count - 1),
+                  ? (Number.isFinite(poem.like_count) ? poem.like_count : 0) + 1
+                  : Math.max(0, (Number.isFinite(poem.like_count) ? poem.like_count : 0) - 1),
               }
             : poem
         )

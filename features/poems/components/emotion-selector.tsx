@@ -16,6 +16,7 @@ import type { EmotionType } from '../types/poem';
 type ThemeColors = ReturnType<typeof useThemedColors>;
 
 interface EmotionOption {
+  id: string;
   type: EmotionType;
   label: string;
   emoji: string;
@@ -23,19 +24,19 @@ interface EmotionOption {
 }
 
 const FALLBACK_EMOTIONS: EmotionOption[] = [
-  { type: 'melancholic', label: 'Melancólico',  emoji: '😔', description: 'Tristeza reflexiva, contemplación profunda' },
-  { type: 'hopeful',     label: 'Esperanzador', emoji: '🌟', description: 'Optimista, mirando hacia adelante' },
-  { type: 'serene',      label: 'Sereno',        emoji: '☮️', description: 'Paz, calma, tranquilidad' },
-  { type: 'passionate',  label: 'Apasionado',   emoji: '🔥', description: 'Emoción intensa, fervoroso' },
-  { type: 'nostalgic',   label: 'Nostálgico',   emoji: '🍂', description: 'Anhelo del pasado, melancolía' },
-  { type: 'inspiring',   label: 'Inspirador',   emoji: '✨', description: 'Edificante, motivador' },
+  { id: '', type: 'melancholic', label: 'Melancólico',  emoji: '😔', description: 'Tristeza reflexiva, contemplación profunda' },
+  { id: '', type: 'hopeful',     label: 'Esperanzador', emoji: '🌟', description: 'Optimista, mirando hacia adelante' },
+  { id: '', type: 'serene',      label: 'Sereno',        emoji: '☮️', description: 'Paz, calma, tranquilidad' },
+  { id: '', type: 'passionate',  label: 'Apasionado',   emoji: '🔥', description: 'Emoción intensa, fervoroso' },
+  { id: '', type: 'nostalgic',   label: 'Nostálgico',   emoji: '🍂', description: 'Anhelo del pasado, melancolía' },
+  { id: '', type: 'inspiring',   label: 'Inspirador',   emoji: '✨', description: 'Edificante, motivador' },
 ];
 
 export interface EmotionSelectorProps {
   visible: boolean;
   onClose: () => void;
   selectedEmotion?: EmotionType;
-  onSelect: (emotion: EmotionType) => void;
+  onSelect: (emotionId: string, emotion: EmotionType) => void;
   onRemove?: () => void;
 }
 
@@ -58,8 +59,9 @@ export function EmotionSelector({
         if (catalog && catalog.length > 0) {
           setEmotions(
             catalog.map((e) => ({
-              type: e.slug as EmotionType,
-              label: e.label,
+              id: e.id,
+              type: ((e as any).slug ?? (e as any).name) as EmotionType,
+              label: (e as any).label ?? (e as any).name,
               emoji: e.emoji,
               description: e.description,
             }))
@@ -71,8 +73,8 @@ export function EmotionSelector({
       });
   }, [visible]);
 
-  const handleSelect = (emotion: EmotionType) => {
-    onSelect(emotion);
+  const handleSelect = (emotion: EmotionOption) => {
+    onSelect(emotion.id, emotion.type);
     onClose();
   };
 
@@ -103,7 +105,7 @@ export function EmotionSelector({
                   return (
                     <Pressable
                       key={emotion.type}
-                      onPress={() => handleSelect(emotion.type)}
+                      onPress={() => handleSelect(emotion)}
                       style={[styles.emotionItem, isSelected && styles.emotionItemSelected]}
                     >
                       <Text style={styles.emotionEmoji}>{emotion.emoji}</Text>

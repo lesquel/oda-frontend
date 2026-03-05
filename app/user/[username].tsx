@@ -40,13 +40,9 @@ export default function PublicProfileScreen() {
     try {
       setIsLoading(true);
       setError(null);
-      const [profileData, userPoems] = await Promise.all([
-        usersApi.getPublicProfile(username as string),
-        usersApi.getUserPoems('', 'published').catch(() => [] as any[]),
-      ]);
+      const profileData = await usersApi.getPublicProfile(username as string);
       setProfile(profileData);
 
-      // Get poems by username via search or user ID
       try {
         const poemsData = await usersApi.getUserPoems(profileData.id, 'published');
         setPoems(poemsData.map((p) => ({ ...p, is_liked: false, is_bookmarked: false })));

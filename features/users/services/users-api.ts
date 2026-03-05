@@ -40,7 +40,7 @@ export const usersApi = {
    * Update the authenticated user's profile
    */
   async updateProfile(data: UpdateProfileRequest) {
-    const response = await apiClient.put('/auth/me', data);
+    const response = await apiClient.put('/me', data);
     return response.data;
   },
 
@@ -49,7 +49,7 @@ export const usersApi = {
    */
   async getPublicProfile(username: string): Promise<PublicUserProfile> {
     const response = await apiClient.get<PublicUserProfile>(
-      `/auth/users/${username}`
+      `/users/${username}`
     );
     return response.data;
   },
@@ -66,6 +66,9 @@ export const usersApi = {
    * Get poems for a given author (optionally filtered by status)
    */
   async getUserPoems(userId: string, status?: 'published' | 'draft') {
+    if (!userId) {
+      return [] as any[];
+    }
     const params = status ? { status } : {};
     const response = await apiClient.get(`/users/${userId}/poems`, { params });
     return response.data as any[];
@@ -75,8 +78,8 @@ export const usersApi = {
    * Change the authenticated user's password
    */
   async changePassword(currentPassword: string, newPassword: string) {
-    const response = await apiClient.put('/auth/me/password', {
-      current_password: currentPassword,
+    const response = await apiClient.put('/me/password', {
+      old_password: currentPassword,
       new_password: newPassword,
     });
     return response.data;

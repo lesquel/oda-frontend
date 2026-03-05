@@ -145,8 +145,8 @@ export default function ProfileScreen() {
                 ...poem,
                 is_liked: isLiked,
                 like_count: isLiked
-                  ? poem.like_count + 1
-                  : Math.max(0, poem.like_count - 1),
+                  ? (Number.isFinite(poem.like_count) ? poem.like_count : 0) + 1
+                  : Math.max(0, (Number.isFinite(poem.like_count) ? poem.like_count : 0) - 1),
               }
             : poem
         )
@@ -890,6 +890,7 @@ function BarItem({
 }
 
 function formatStatNumber(n: number): string {
+  if (!Number.isFinite(n)) return '0';
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return String(n);
 }

@@ -65,10 +65,11 @@ export default function PoemDetailScreen() {
     if (!poem) return;
     try {
       const isLiked = await poemsApi.toggleLike(poem.id);
+      const currentLikes = Number.isFinite(poem.like_count) ? poem.like_count : 0;
       setPoem({
         ...poem,
         is_liked: isLiked,
-        like_count: isLiked ? poem.like_count + 1 : Math.max(0, poem.like_count - 1),
+        like_count: isLiked ? currentLikes + 1 : Math.max(0, currentLikes - 1),
       });
     } catch {}
   });
@@ -87,10 +88,11 @@ export default function PoemDetailScreen() {
     await shareContent({ title: poem.title, text: message });
   };
 
-  const handleSelectEmotion = async (emotion: EmotionType) => {
+  const handleSelectEmotion = async (emotionId: string, _emotion: EmotionType) => {
     if (!poem) return;
     try {
-      await poemsApi.tagEmotion(poem.id, emotion);
+      if (!emotionId) return;
+      await poemsApi.tagEmotion(poem.id, emotionId);
       const updated = await poemsApi.getPoemById(poem.id);
       setPoem(updated);
     } catch {}
@@ -168,11 +170,11 @@ export default function PoemDetailScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Ionicons name={poem.is_liked ? 'heart' : 'heart-outline'} size={16} color={poem.is_liked ? C.wax : C.pencil} />
-            <Text style={styles.statValue}>{poem.like_count}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(poem.like_count) ? poem.like_count : 0}</Text>
           </View>
           <View style={styles.statItem}>
             <Ionicons name="eye-outline" size={16} color={C.pencil} />
-            <Text style={styles.statValue}>{poem.view_count}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(poem.view_count) ? poem.view_count : 0}</Text>
           </View>
         </View>
 
